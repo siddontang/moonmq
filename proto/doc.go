@@ -56,6 +56,7 @@ package proto
 
 // Fields:
 //   Queue = xxx
+//   Routing-key = xxx
 // Body:
 // msg id (bigendian int64)
 
@@ -118,7 +119,8 @@ package proto
 // Method: Push
 
 // Fields:
-//      Queue = xxx
+//     Queue = xxx
+//     Routing-Key= xxx
 
 // Body:
 //  publish data

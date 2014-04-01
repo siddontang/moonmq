@@ -14,18 +14,21 @@ func (c *conn) handleBind(p *proto.Proto) error {
 
 	routingKeys := strings.Split(p.Fields[proto.RoutingKeyStr], ",")
 
-	q := c.app.qs.Get(queue)
-
-	ch, ok := c.chs[queue]
+	rqs, ok := c.routes[queue]
 	if ok {
-		q.Unbind(ch)
-		ch.routingKeys = routingKeys
-		q.Bind(ch)
-	} else {
-		ch := newChannel(c, q, routingKeys)
-		c.chs[queue] = ch
+		for _, routingKey := range rqs {
+			rq := c.app.qs.Getx(queue, routingKey)
+			if rq != nil {
+				rq.Unbind(c)
+			}
+		}
+	}
 
-		q.Bind(ch)
+	c.routes[queue] = routingKeys
+
+	for _, routingKey := range routingKeys {
+		rq := c.app.qs.Get(queue, routingKey)
+		rq.Bind(c)
 	}
 
 	np := proto.NewProto(proto.Bind_OK, map[string]string{
@@ -43,14 +46,15 @@ func (c *conn) handleUnbind(p *proto.Proto) error {
 		return c.protoError(http.StatusForbidden, "queue must supplied")
 	}
 
-	q := c.app.qs.Get(queue)
-
-	ch, ok := c.chs[queue]
-	if !ok {
-		return c.protoError(http.StatusForbidden, "queue not bind before")
+	rqs, ok := c.routes[queue]
+	if ok {
+		for _, routingKey := range rqs {
+			rq := c.app.qs.Getx(queue, routingKey)
+			if rq != nil {
+				rq.Unbind(c)
+			}
+		}
 	}
-
-	q.Unbind(ch)
 
 	np := proto.NewProto(proto.Unbind_OK, map[string]string{
 		proto.QueueStr: queue,

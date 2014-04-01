@@ -26,7 +26,6 @@ type Config struct {
 
 	KeyPrefix string `json:"key_prefix"`
 
-	MaxQueueSize   int `json:"max_queue_size"`
 	MaxMessageSize int `json:"max_msg_size"`
 	MessageTimeout int `json:"msg_timeout"`
 }

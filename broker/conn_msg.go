@@ -33,13 +33,13 @@ func (c *conn) handlePublish(p *proto.Proto) error {
 		return c.protoError(http.StatusInternalServerError, "gen msgid error")
 	}
 
-	msg := newMsg(id, t, routingKey, message)
+	msg := newMsg(id, t, message)
 
-	if err := c.app.ms.Save(queue, msg); err != nil {
+	if err := c.app.ms.Save(queue, routingKey, msg); err != nil {
 		return c.protoError(http.StatusInternalServerError, "save message error")
 	}
 
-	q := c.app.qs.Get(queue)
+	q := c.app.qs.Get(queue, routingKey)
 	q.Push(msg)
 
 	msgBuf := make([]byte, 8)
@@ -63,15 +63,25 @@ func (c *conn) handleAck(p *proto.Proto) error {
 		return c.protoError(http.StatusBadRequest, "invalid publish data")
 	}
 
-	msgId := int64(binary.BigEndian.Uint64(p.Body))
+	routingKey := p.Fields[proto.RoutingKeyStr]
 
-	q := c.app.qs.Get(queue)
-
-	if _, ok := c.chs[queue]; !ok {
-		return c.protoError(http.StatusForbidden, "unbind channel cannot ack")
-	} else {
-		q.Ack(msgId)
+	q := c.app.qs.Getx(queue, routingKey)
+	if q == nil {
+		return c.protoError(http.StatusBadRequest, "invalid ack fields")
 	}
 
+	msgId := int64(binary.BigEndian.Uint64(p.Body))
+
+	q.Ack(msgId)
+
 	return nil
+}
+
+func (c *conn) Push(queue string, routingKey string, m *msg) error {
+	p := proto.NewProto(proto.Push, map[string]string{
+		proto.QueueStr:      queue,
+		proto.RoutingKeyStr: routingKey,
+	}, m.body)
+
+	return c.writeProto(p)
 }

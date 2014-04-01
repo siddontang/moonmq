@@ -23,7 +23,7 @@ type conn struct {
 
 	handshaked bool
 
-	chs map[string]*channel
+	routes map[string][]string
 }
 
 func newConn(app *App, co net.Conn) *conn {
@@ -38,7 +38,7 @@ func newConn(app *App, co net.Conn) *conn {
 
 	c.checkKeepAlive()
 
-	c.chs = make(map[string]*channel)
+	c.routes = make(map[string][]string)
 
 	return c
 }
@@ -57,9 +57,6 @@ func (c *conn) onRead() {
 
 		c.c.Close()
 
-		for _, ch := range c.chs {
-			ch.q.Unbind(ch)
-		}
 	}()
 
 	for {

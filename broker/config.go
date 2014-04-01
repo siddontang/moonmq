@@ -7,28 +7,34 @@ import (
 )
 
 type Config struct {
-	BrokerID uint16 `json:"broker_id"`
-
-	DataDir string `json:"data_dir"`
-
 	Version uint32 `json:"version"`
 
-	ListenAddr string `json:"listen_addr"`
-
-	ErrorLog string `json:"error_log"`
+	ListenAddrs []struct {
+		Net  string `json:"net"`
+		Addr string `json:"addr"`
+	} `json:"listen_addrs"`
 
 	KeepAlive int `json:"keepalive"`
+
+	Redis struct {
+		Net       string `json:"net"`
+		Addr      string `json:"addr"`
+		DB        int    `json:"db"`
+		Password  string `json:"password"`
+		IdleConns int    `json:"idle_conns"`
+	} `json:"redis"`
+
+	KeyPrefix string `json:"key_prefix"`
+
+	MaxQueueSize   int `json:"max_queue_size"`
+	MaxMessageSize int `json:"max_msg_size"`
+	MessageTimeout int `json:"msg_timeout"`
 }
 
-func parseConfig(configFile string) (*Config, error) {
-	buf, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return nil, err
-	}
-
+func parseConfigJson(buf json.RawMessage) (*Config, error) {
 	cfg := new(Config)
 
-	err = json.Unmarshal(buf, cfg)
+	err := json.Unmarshal(buf, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -38,4 +44,13 @@ func parseConfig(configFile string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func parseConfigFile(configFile string) (*Config, error) {
+	buf, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseConfigJson(buf)
 }

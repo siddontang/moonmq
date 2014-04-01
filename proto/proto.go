@@ -21,8 +21,6 @@ var (
 */
 
 type Proto struct {
-	Version uint32 `json:"version"`
-
 	Method uint32 `json:"method"`
 
 	Fields map[string]string `json:"fields"`
@@ -30,11 +28,22 @@ type Proto struct {
 	Body []byte `json:"-"`
 }
 
-func NewProto() *Proto {
+func NewProto(method uint32, fields map[string]string, body []byte) *Proto {
 	p := new(Proto)
 
-	p.Fields = map[string]string{}
-	p.Body = []byte{}
+	p.Method = method
+	if fields == nil {
+		p.Fields = map[string]string{}
+	} else {
+		p.Fields = fields
+	}
+
+	if body == nil {
+		p.Body = []byte{}
+	} else {
+		p.Body = body
+	}
+
 	return p
 }
 

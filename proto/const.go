@@ -1,6 +1,9 @@
 package proto
 
 const (
+	Handshake    uint32 = 0
+	Handshake_OK uint32 = 1
+
 	Publish    uint32 = 10
 	Publish_OK uint32 = 11
 
@@ -15,4 +18,26 @@ const (
 	Heartbeat uint32 = 10020
 	Push      uint32 = 10030
 	Ack       uint32 = 10040
+)
+
+const (
+	VersionStr    = "Version"
+	TypeStr       = "Type"
+	QueueStr      = "Queue"
+	RoutingKeyStr = "Routing-Key"
+)
+
+const (
+	DirectType uint8 = 0
+	FanoutType uint8 = 1
+)
+
+var PublishTypeMap = map[string]uint8{
+	"direct": DirectType,
+	"fanout": FanoutType,
+}
+
+const (
+	MaxQueueName      = 128
+	MaxRoutingKeyName = 128
 )

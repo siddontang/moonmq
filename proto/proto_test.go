@@ -9,7 +9,6 @@ func TestProto(t *testing.T) {
 	p := new(Proto)
 
 	p.Method = 100
-	p.Version = 0
 
 	p.Fields = map[string]string{
 		"key1": "value1",

@@ -10,15 +10,11 @@ type ProtoError struct {
 
 func NewProtoError(code int, message string) *ProtoError {
 	p := new(ProtoError)
-	p.P = NewProto()
-
-	p.P.Method = Error
-
-	p.P.Fields = map[string]string{
-		"Code": strconv.Itoa(code),
-	}
-
-	p.P.Body = []byte(message)
+	p.P = NewProto(Error,
+		map[string]string{
+			"Code": strconv.Itoa(code),
+		},
+		[]byte(message))
 
 	return p
 }

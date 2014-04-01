@@ -9,10 +9,7 @@ import (
 )
 
 func TestCodec(t *testing.T) {
-	p := NewProto()
-
-	p.Method = 100
-	p.Fields["Queue"] = "abc"
+	p := NewProto(100, map[string]string{"Queue": "abc"}, nil)
 
 	wb := bytes.NewBuffer(nil)
 	e := NewEncoder(wb)
@@ -24,7 +21,7 @@ func TestCodec(t *testing.T) {
 	rb := bytes.NewBuffer(wb.Bytes())
 	d := NewDecoder(rb)
 
-	p2 := NewProto()
+	p2 := new(Proto)
 
 	if err := d.Decode(p2); err != nil {
 		t.Fatal(err)

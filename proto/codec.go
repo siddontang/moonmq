@@ -60,3 +60,10 @@ func (d *Decoder) Decode(p *Proto) error {
 	err = Unmarshal(buf, p)
 	return err
 }
+
+func (d *Decoder) DecodeProto() (*Proto, error) {
+	var p Proto
+	err := d.Decode(&p)
+
+	return &p, err
+}

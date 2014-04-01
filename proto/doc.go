@@ -12,9 +12,20 @@ package proto
 
 // asynchronous is even number
 
+// handshake proto
+
+// Method: Handshake
+// Fields: nil
+// Body: nil
+
+// handshake_ok proto
+
+// Method: Handshake_OK
+// Fields:
+// Body: nil
+
 // publish proto
 
-// Version: 1
 // Method: Publish
 // Fields:
 //   //direct|fanout
@@ -32,17 +43,15 @@ package proto
 
 // publish_ok proto
 
-// Version: 1
 // Method: Publish_OK
 
 // Fields: nil
 
 // Body:
-//  msg id (bigendian int64)
+//  msg id ((bigendian int64))
 
 // ack proto
 
-// Version: 1
 // Method: Ack
 
 // Fields:
@@ -52,7 +61,6 @@ package proto
 
 // error proto
 
-// Version: 1
 // Method: Error
 
 // Fields:
@@ -63,7 +71,6 @@ package proto
 
 // heartbeat proto
 
-// Version: 1
 // Method: Heartbeat
 
 // Fields: nil
@@ -71,7 +78,6 @@ package proto
 
 // bind proto
 
-// Version: 1
 // Method: Bind
 // Fields:
 //     //Queue to get message
@@ -84,7 +90,6 @@ package proto
 
 // bind_ok proto
 
-// Version: 1
 // Method: Bind_OK
 
 // Fields:
@@ -93,7 +98,6 @@ package proto
 
 // unbind proto
 
-// Version: 1
 // Method: Unbind
 
 // Fields:
@@ -103,9 +107,18 @@ package proto
 
 // unbind_ok proto
 
-// Version: 1
 // Method: Unbind_OK
 
 // Fields:
 //      Queue = xxx
 // Body: nil
+
+// push proto
+
+// Method: Push
+
+// Fields:
+//      Queue = xxx
+
+// Body:
+//  publish data

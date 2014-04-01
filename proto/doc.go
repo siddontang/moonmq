@@ -87,6 +87,9 @@ package proto
 //     //bind sepcial routing key, seperated by comma
 //     Routing-Key = xxx,xxx,xxx
 
+//     //no ack, if set to 1, push succesfully when write ok
+//     No-Ack = 1
+
 // Body: nil
 
 // bind_ok proto

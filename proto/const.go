@@ -25,6 +25,7 @@ const (
 	TypeStr       = "Type"
 	QueueStr      = "Queue"
 	RoutingKeyStr = "Routing-Key"
+	NoAckStr      = "No-Ack"
 )
 
 const (

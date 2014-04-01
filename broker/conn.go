@@ -24,6 +24,8 @@ type conn struct {
 	handshaked bool
 
 	routes map[string][]string
+
+	noAcks map[string]struct{}
 }
 
 func newConn(app *App, co net.Conn) *conn {
@@ -39,6 +41,7 @@ func newConn(app *App, co net.Conn) *conn {
 	c.checkKeepAlive()
 
 	c.routes = make(map[string][]string)
+	c.noAcks = make(map[string]struct{})
 
 	return c
 }

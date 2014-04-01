@@ -12,6 +12,12 @@ func (c *conn) handleBind(p *proto.Proto) error {
 		return c.protoError(http.StatusForbidden, "queue must supplied")
 	}
 
+	noAck := (p.Fields[proto.NoAckStr] == "1")
+
+	if noAck {
+		c.noAcks[queue] = struct{}{}
+	}
+
 	routingKeys := strings.Split(p.Fields[proto.RoutingKeyStr], ",")
 
 	rqs, ok := c.routes[queue]
@@ -45,6 +51,8 @@ func (c *conn) handleUnbind(p *proto.Proto) error {
 	if len(queue) == 0 {
 		return c.protoError(http.StatusForbidden, "queue must supplied")
 	}
+
+	delete(c.noAcks, queue)
 
 	rqs, ok := c.routes[queue]
 	if ok {

@@ -83,5 +83,20 @@ func (c *conn) Push(queue string, routingKey string, m *msg) error {
 		proto.RoutingKeyStr: routingKey,
 	}, m.body)
 
-	return c.writeProto(p)
+	err := c.writeProto(p)
+
+	if err == nil && c.HasNoAck(queue) {
+		q := c.app.qs.Getx(queue, routingKey)
+		q.Ack(m.id)
+	}
+
+	return err
+}
+
+func (c *conn) HasNoAck(queue string) bool {
+	if _, ok := c.noAcks[queue]; ok {
+		return true
+	} else {
+		return false
+	}
 }

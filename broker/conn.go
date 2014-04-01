@@ -133,8 +133,10 @@ func (c *conn) writeProto(p *proto.Proto) error {
 	c.Unlock()
 
 	if err != nil {
+		c.c.Close()
 		return err
 	} else if n != len(buf) {
+		c.c.Close()
 		return fmt.Errorf("write incomplete, %d less than %d", n, len(buf))
 	} else {
 		return nil

@@ -47,6 +47,26 @@ func NewProto(method uint32, fields map[string]string, body []byte) *Proto {
 	return p
 }
 
+func (p *Proto) Value(key string) string {
+	return p.Fields[key]
+}
+
+func (p *Proto) Queue() string {
+	return p.Value(QueueStr)
+}
+
+func (p *Proto) RoutingKey() string {
+	return p.Value(RoutingKeyStr)
+}
+
+func (p *Proto) PubType() string {
+	return p.Value(TypeStr)
+}
+
+func (p *Proto) MsgId() string {
+	return p.Value(MsgIdStr)
+}
+
 func Marshal(p *Proto) ([]byte, error) {
 	header, err := json.Marshal(p)
 	if err != nil {

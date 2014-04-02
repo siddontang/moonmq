@@ -20,6 +20,8 @@ var testConfig = `
 
         "keepalive" : 60,
 
+        "password": "admin",
+
         "redis": {
             "net":"tcp",
             "addr":"127.0.0.1:6379",

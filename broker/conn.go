@@ -1,9 +1,11 @@
 package broker
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/siddontang/golib/log"
 	"github.com/siddontang/moonmq/proto"
+	"io"
 	"net"
 	"runtime"
 	"sync"
@@ -21,11 +23,11 @@ type conn struct {
 
 	lastUpdate int64
 
-	handshaked bool
-
 	routes map[string][]string
 
 	noAcks map[string]struct{}
+
+	authed bool
 }
 
 func newConn(app *App, co net.Conn) *conn {
@@ -34,7 +36,7 @@ func newConn(app *App, co net.Conn) *conn {
 	c.app = app
 	c.c = co
 
-	c.handshaked = false
+	c.authed = false
 
 	c.decoder = proto.NewDecoder(co)
 
@@ -58,28 +60,34 @@ func (c *conn) onRead() {
 			log.Fatal("crash %v:%v", err, buf)
 		}
 
+		c.unbindAll()
+
 		c.c.Close()
 
 	}()
 
 	for {
-		p, err := c.decoder.DecodeProto()
+		p, err := c.decoder.Decode()
 		if err != nil {
-			log.Info("on read error %v", err)
+			if err != io.EOF {
+				log.Info("on read error %v", err)
+			}
 			return
 		}
 
-		if p.Method == proto.Handshake {
-			err = c.handleHandshake(p)
+		if p.Method == proto.Auth {
+			err = c.handleAuth(p)
 		} else {
-			if !c.handshaked {
-				err = fmt.Errorf("must handshake first")
+			if len(c.app.passMD5) > 0 && !c.authed {
+				err = fmt.Errorf("must auth first")
 			} else {
 				switch p.Method {
 				case proto.Publish:
 					err = c.handlePublish(p)
 				case proto.Bind:
+					err = c.handleBind(p)
 				case proto.Unbind:
+					err = c.handleUnbind(p)
 				case proto.Ack:
 					err = c.handleAck(p)
 				case proto.Heartbeat:
@@ -97,13 +105,18 @@ func (c *conn) onRead() {
 	}
 }
 
-func (c *conn) handleHandshake(p *proto.Proto) error {
-	//later check authorization
+func (c *conn) handleAuth(p *proto.Proto) error {
+	if len(c.app.passMD5) > 0 {
+		if !bytes.Equal(p.Body, c.app.passMD5) {
+			return fmt.Errorf("invalid password")
+		}
+	}
 
-	rp := proto.NewProto(proto.Handshake_OK, nil, nil)
-	c.writeProto(rp)
+	c.authed = true
 
-	c.handshaked = true
+	rp := proto.NewAuthOKProto()
+
+	c.writeProto(rp.P)
 
 	return nil
 }
@@ -154,9 +167,9 @@ func (c *conn) checkKeepAlive() {
 			c.c.Close()
 			return
 		} else {
-			c.app.wheel.AddTask(time.Duration(c.app.cfg.KeepAlive), f)
+			c.app.wheel.AddTask(time.Duration(c.app.cfg.KeepAlive)*time.Second, f)
 		}
 	}
 
-	c.app.wheel.AddTask(time.Duration(c.app.cfg.KeepAlive), f)
+	c.app.wheel.AddTask(time.Duration(c.app.cfg.KeepAlive)*time.Second, f)
 }

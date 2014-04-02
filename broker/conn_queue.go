@@ -7,18 +7,18 @@ import (
 )
 
 func (c *conn) handleBind(p *proto.Proto) error {
-	queue := p.Fields[proto.QueueStr]
+	queue := p.Queue()
 	if len(queue) == 0 {
 		return c.protoError(http.StatusForbidden, "queue must supplied")
 	}
 
-	noAck := (p.Fields[proto.NoAckStr] == "1")
+	noAck := (p.Value(proto.NoAckStr) == "1")
 
 	if noAck {
 		c.noAcks[queue] = struct{}{}
 	}
 
-	routingKeys := strings.Split(p.Fields[proto.RoutingKeyStr], ",")
+	routingKeys := strings.Split(p.RoutingKey(), ",")
 
 	rqs, ok := c.routes[queue]
 	if ok {
@@ -37,19 +37,38 @@ func (c *conn) handleBind(p *proto.Proto) error {
 		rq.Bind(c)
 	}
 
-	np := proto.NewProto(proto.Bind_OK, map[string]string{
-		proto.QueueStr: queue,
-	}, nil)
+	np := proto.NewBindOKProto(queue)
 
-	c.writeProto(np)
+	c.writeProto(np.P)
+
+	return nil
+}
+
+func (c *conn) unbindAll() error {
+	c.noAcks = map[string]struct{}{}
+
+	for queue, rqs := range c.routes {
+		for _, routingKey := range rqs {
+			rq := c.app.qs.Getx(queue, routingKey)
+			if rq != nil {
+				rq.Unbind(c)
+			}
+		}
+	}
+
+	c.routes = map[string][]string{}
+
+	np := proto.NewUnbindProto("")
+
+	c.writeProto(np.P)
 
 	return nil
 }
 
 func (c *conn) handleUnbind(p *proto.Proto) error {
-	queue := p.Fields[proto.QueueStr]
+	queue := p.Queue()
 	if len(queue) == 0 {
-		return c.protoError(http.StatusForbidden, "queue must supplied")
+		return c.unbindAll()
 	}
 
 	delete(c.noAcks, queue)
@@ -64,11 +83,9 @@ func (c *conn) handleUnbind(p *proto.Proto) error {
 		}
 	}
 
-	np := proto.NewProto(proto.Unbind_OK, map[string]string{
-		proto.QueueStr: queue,
-	}, nil)
+	np := proto.NewUnbindOKProto(queue)
 
-	c.writeProto(np)
+	c.writeProto(np.P)
 
 	return nil
 }

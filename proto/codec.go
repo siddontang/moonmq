@@ -44,26 +44,41 @@ func NewDecoder(r io.Reader) *Decoder {
 	return d
 }
 
-func (d *Decoder) Decode(p *Proto) error {
+func (d *Decoder) Decode() (*Proto, error) {
+	p := new(Proto)
+
 	buf, err := d.r.Peek(4)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	lenght := binary.BigEndian.Uint32(buf)
 	buf = make([]byte, lenght+4)
 
 	if _, err := io.ReadFull(d.r, buf); err != nil {
-		return err
+		return nil, err
 	}
 
 	err = Unmarshal(buf, p)
-	return err
+
+	return p, err
 }
 
-func (d *Decoder) DecodeProto() (*Proto, error) {
-	var p Proto
-	err := d.Decode(&p)
+type Coder struct {
+	e *Encoder
+	d *Decoder
+}
 
-	return &p, err
+func NewCoder(rb io.ReadWriter) *Coder {
+	c := Coder{e: NewEncoder(rb), d: NewDecoder(rb)}
+
+	return &c
+}
+
+func (c *Coder) Encode(p *Proto) error {
+	return c.e.Encode(p)
+}
+
+func (c *Coder) Decode() (*Proto, error) {
+	return c.d.Decode()
 }

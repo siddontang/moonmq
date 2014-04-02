@@ -21,9 +21,10 @@ func TestCodec(t *testing.T) {
 	rb := bytes.NewBuffer(wb.Bytes())
 	d := NewDecoder(rb)
 
-	p2 := new(Proto)
+	var p2 *Proto
 
-	if err := d.Decode(p2); err != nil {
+	var err error
+	if p2, err = d.Decode(); err != nil {
 		t.Fatal(err)
 	}
 

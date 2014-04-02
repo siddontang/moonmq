@@ -4,6 +4,10 @@ import (
 	"strconv"
 )
 
+// Method: Error
+// Fields:
+//     Code: xxx (http error code, int string)
+// Body: message
 type ProtoError struct {
 	P *Proto
 }
@@ -12,7 +16,7 @@ func NewProtoError(code int, message string) *ProtoError {
 	p := new(ProtoError)
 	p.P = NewProto(Error,
 		map[string]string{
-			"Code": strconv.Itoa(code),
+			CodeStr: strconv.Itoa(code),
 		},
 		[]byte(message))
 

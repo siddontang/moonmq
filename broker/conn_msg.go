@@ -1,17 +1,18 @@
 package broker
 
 import (
-	"encoding/binary"
 	"fmt"
 	"github.com/siddontang/moonmq/proto"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
 func (c *conn) handlePublish(p *proto.Proto) error {
-	tp := p.Fields[proto.TypeStr]
-	queue := p.Fields[proto.QueueStr]
-	routingKey := p.Fields[proto.RoutingKeyStr]
+	tp := p.PubType()
+	queue := p.Queue()
+	routingKey := p.RoutingKey()
+
 	message := p.Body
 
 	if len(message) == 0 {
@@ -42,35 +43,31 @@ func (c *conn) handlePublish(p *proto.Proto) error {
 	q := c.app.qs.Get(queue, routingKey)
 	q.Push(msg)
 
-	msgBuf := make([]byte, 8)
-	binary.BigEndian.PutUint64(msgBuf, uint64(id))
+	np := proto.NewPublishOKProto(strconv.FormatInt(id, 10))
 
-	np := proto.NewProto(proto.Publish_OK, nil, msgBuf)
-
-	c.writeProto(np)
+	c.writeProto(np.P)
 
 	return nil
 }
 
 func (c *conn) handleAck(p *proto.Proto) error {
-	queue := p.Fields[proto.QueueStr]
+	queue := p.Queue()
 
 	if len(queue) == 0 {
 		return c.protoError(http.StatusForbidden, "queue must supplied")
 	}
 
-	if len(p.Body) != 8 {
-		return c.protoError(http.StatusBadRequest, "invalid publish data")
-	}
+	routingKey := p.RoutingKey()
 
-	routingKey := p.Fields[proto.RoutingKeyStr]
+	msgId, err := strconv.ParseInt(p.MsgId(), 10, 64)
+	if err != nil {
+		return err
+	}
 
 	q := c.app.qs.Getx(queue, routingKey)
 	if q == nil {
 		return c.protoError(http.StatusBadRequest, "invalid ack fields")
 	}
-
-	msgId := int64(binary.BigEndian.Uint64(p.Body))
 
 	q.Ack(msgId)
 
@@ -78,14 +75,14 @@ func (c *conn) handleAck(p *proto.Proto) error {
 }
 
 func (c *conn) Push(queue string, routingKey string, m *msg) error {
-	p := proto.NewProto(proto.Push, map[string]string{
-		proto.QueueStr:      queue,
-		proto.RoutingKeyStr: routingKey,
-	}, m.body)
+	noAck := c.HasNoAck(queue)
 
-	err := c.writeProto(p)
+	p := proto.NewPushProto(queue, routingKey,
+		strconv.FormatInt(m.id, 10), m.body, noAck)
 
-	if err == nil && c.HasNoAck(queue) {
+	err := c.writeProto(p.P)
+
+	if err == nil && noAck {
 		q := c.app.qs.Getx(queue, routingKey)
 		q.Ack(m.id)
 	}

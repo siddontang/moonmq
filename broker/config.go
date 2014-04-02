@@ -14,6 +14,8 @@ type Config struct {
 		Addr string `json:"addr"`
 	} `json:"listen_addrs"`
 
+	Password string `json:"password"`
+
 	KeepAlive int `json:"keepalive"`
 
 	Redis struct {

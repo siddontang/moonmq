@@ -1,9 +1,9 @@
 package broker
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"github.com/garyburd/redigo/redis"
-
 	"github.com/siddontang/golib/timingwheel"
 	"net"
 	"time"
@@ -21,6 +21,8 @@ type App struct {
 	ms *msgStore
 
 	qs *queues
+
+	passMD5 []byte
 }
 
 func NewApp(jsonConfig json.RawMessage) (*App, error) {
@@ -33,6 +35,11 @@ func NewApp(jsonConfig json.RawMessage) (*App, error) {
 	}
 
 	app.cfg = cfg
+
+	if len(cfg.Password) > 0 {
+		sum := md5.Sum([]byte(cfg.Password))
+		app.passMD5 = sum[0:16]
+	}
 
 	app.listeners = make([]net.Listener, len(cfg.ListenAddrs))
 

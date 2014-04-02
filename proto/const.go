@@ -1,8 +1,20 @@
 package proto
 
+// Refer ampq protocol, we have below methods:
+
+// 1, synchronous request, must wait for the special reply method,
+//  but can handle asynchronous method when waits
+// 2, synchronous reply, to a special synchronous request
+// 3, asynchronous request or reply
+
+// synchronous request is even number
+// synchronous reply is odd number
+
+// asynchronous is even number
+
 const (
-	Handshake    uint32 = 0
-	Handshake_OK uint32 = 1
+	Auth    uint32 = 0
+	Auth_OK uint32 = 1
 
 	Publish    uint32 = 10
 	Publish_OK uint32 = 11
@@ -21,11 +33,13 @@ const (
 )
 
 const (
+	MsgIdStr      = "Msg-Id"
 	VersionStr    = "Version"
 	TypeStr       = "Type"
 	QueueStr      = "Queue"
 	RoutingKeyStr = "Routing-Key"
 	NoAckStr      = "No-Ack"
+	CodeStr       = "Code"
 )
 
 const (

@@ -12,10 +12,7 @@ var testConfig = `
     {
         "version":1,
         "listen_addrs":[
-            {
-                "net":"tcp",
-                "addr":"127.0.0.1:11181"
-            }
+           "127.0.0.1:11181"
         ],
 
         "keepalive" : 60,

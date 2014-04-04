@@ -9,10 +9,7 @@ import (
 type Config struct {
 	Version uint32 `json:"version"`
 
-	ListenAddrs []struct {
-		Net  string `json:"net"`
-		Addr string `json:"addr"`
-	} `json:"listen_addrs"`
+	ListenAddrs []string `json:"listen_addrs"`
 
 	Password string `json:"password"`
 

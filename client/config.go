@@ -5,7 +5,6 @@ import (
 )
 
 type Config struct {
-	BrokerNet  string `json:"broker_net"`
 	BrokerAddr string `json:"broker_addr"`
 	KeepAlive  int    `json:"keepalive"`
 	Password   string `json:"password"`

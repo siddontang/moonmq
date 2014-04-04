@@ -5,6 +5,7 @@ import (
 	"github.com/siddontang/moonmq/proto"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -36,8 +37,13 @@ func newConn(client *Client) (*Conn, error) {
 	c.client = client
 	c.cfg = client.cfg
 
+	var n string = "tcp"
+	if strings.Contains(c.cfg.BrokerAddr, "/") {
+		n = "unix"
+	}
+
 	var err error
-	if c.conn, err = net.Dial(c.cfg.BrokerNet, c.cfg.BrokerAddr); err != nil {
+	if c.conn, err = net.Dial(n, c.cfg.BrokerAddr); err != nil {
 		return nil, err
 	}
 

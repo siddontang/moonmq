@@ -9,7 +9,6 @@ import (
 
 var testClientConfig = []byte(`
     {
-        "broker_net":"tcp",
         "broker_addr":"127.0.0.1:11181",
         "keepavlie":60,
         "password":"admin",

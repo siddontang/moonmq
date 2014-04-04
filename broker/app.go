@@ -6,6 +6,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/siddontang/golib/timingwheel"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -44,7 +45,12 @@ func NewApp(jsonConfig json.RawMessage) (*App, error) {
 	app.listeners = make([]net.Listener, len(cfg.ListenAddrs))
 
 	for i, a := range cfg.ListenAddrs {
-		app.listeners[i], err = net.Listen(a.Net, a.Addr)
+		var n string = "tcp"
+		if strings.Contains(a, "/") {
+			n = "unix"
+		}
+
+		app.listeners[i], err = net.Listen(n, a)
 		if err != nil {
 			return nil, err
 		}

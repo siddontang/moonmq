@@ -22,9 +22,8 @@ type routeQueue struct {
 
 	ch chan func()
 
-	waitingAck bool
-
-	lastWaitingAck int64
+	waitingAcks map[*conn]struct{}
+	lastPushId  int64
 }
 
 func newRouteQueue(qs *queues, queue string, routingkey string) *routeQueue {
@@ -40,7 +39,9 @@ func newRouteQueue(qs *queues, queue string, routingkey string) *routeQueue {
 
 	rq.conns = list.New()
 
-	rq.waitingAck = false
+	rq.lastPushId = -1
+
+	rq.waitingAcks = make(map[*conn]struct{})
 
 	rq.ch = make(chan func(), 32)
 
@@ -54,12 +55,7 @@ func (rq *routeQueue) run() {
 		select {
 		case f := <-rq.ch:
 			f()
-		case <-rq.app.wheel.After(1 * time.Minute):
-			if rq.waitingAck {
-				if time.Now().Unix()-rq.lastWaitingAck > int64(1*time.Minute) {
-					rq.waitingAck = false
-				}
-			}
+		case <-rq.app.wheel.After(5 * time.Minute):
 			if rq.conns.Len() == 0 {
 				m, _ := rq.getMsg()
 				if m == nil {
@@ -76,6 +72,7 @@ func (rq *routeQueue) Bind(c *conn) {
 	f := func() {
 		for e := rq.conns.Front(); e != nil; e = e.Next() {
 			if e.Value.(*conn) == c {
+
 				return
 			}
 		}
@@ -90,11 +87,27 @@ func (rq *routeQueue) Bind(c *conn) {
 
 func (rq *routeQueue) Unbind(c *conn) {
 	f := func() {
+		var repush bool = false
 		for e := rq.conns.Front(); e != nil; e = e.Next() {
 			if e.Value.(*conn) == c {
 				rq.conns.Remove(e)
-				return
+
+				if _, ok := rq.waitingAcks[c]; ok {
+					//conn not ack
+					delete(rq.waitingAcks, c)
+
+					if len(rq.waitingAcks) == 0 {
+						//all waiting conn not send ack
+						//repush
+						repush = true
+					}
+				}
+				break
 			}
+		}
+		if repush {
+			rq.lastPushId = -1
+			rq.push()
 		}
 	}
 
@@ -103,9 +116,14 @@ func (rq *routeQueue) Unbind(c *conn) {
 
 func (rq *routeQueue) Ack(msgId int64) {
 	f := func() {
+		if msgId != rq.lastPushId {
+			return
+		}
+
 		rq.store.Delete(rq.queue, rq.routingKey, msgId)
 
-		rq.waitingAck = false
+		rq.waitingAcks = map[*conn]struct{}{}
+		rq.lastPushId = -1
 
 		rq.push()
 	}
@@ -146,7 +164,7 @@ func (rq *routeQueue) getMsg() (*msg, error) {
 }
 
 func (rq *routeQueue) push() {
-	if rq.waitingAck {
+	if rq.lastPushId != -1 {
 		return
 	}
 
@@ -169,9 +187,7 @@ func (rq *routeQueue) push() {
 	}
 
 	if err == nil {
-		rq.waitingAck = true
-
-		rq.lastWaitingAck = time.Now().Unix()
+		rq.lastPushId = m.id
 	}
 }
 
@@ -186,6 +202,9 @@ func (rq *routeQueue) pushDirect(m *msg) error {
 		} else {
 			rq.conns.Remove(e)
 			rq.conns.PushBack(c)
+
+			rq.waitingAcks[c] = struct{}{}
+
 			return nil
 		}
 	}
@@ -205,6 +224,7 @@ func (rq *routeQueue) pushFanout(m *msg) error {
 			rq.conns.Remove(e)
 		} else {
 			done = true
+			rq.waitingAcks[c] = struct{}{}
 		}
 	}
 

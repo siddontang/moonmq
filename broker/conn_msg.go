@@ -57,6 +57,10 @@ func (c *conn) handleAck(p *proto.Proto) error {
 		return c.protoError(http.StatusForbidden, "queue must supplied")
 	}
 
+	if _, ok := c.routes[queue]; !ok {
+		return c.protoError(http.StatusForbidden, "invalid queue")
+	}
+
 	routingKey := p.RoutingKey()
 
 	msgId, err := strconv.ParseInt(p.MsgId(), 10, 64)

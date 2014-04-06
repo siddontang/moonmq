@@ -75,6 +75,8 @@ func (c *conn) handleUnbind(p *proto.Proto) error {
 
 	rqs, ok := c.routes[queue]
 	if ok {
+		delete(c.routes, queue)
+
 		for _, routingKey := range rqs {
 			rq := c.app.qs.Getx(queue, routingKey)
 			if rq != nil {

@@ -29,6 +29,16 @@ func (c *conn) handlePublish(p *proto.Proto) error {
 			fmt.Sprintf("invalid publish type %s", tp))
 	}
 
+	if c.app.cfg.MaxQueueSize > 0 {
+		if n, err := c.app.ms.Len(queue, routingKey); err != nil {
+			return c.protoError(http.StatusInternalServerError, err.Error())
+		} else if n >= c.app.cfg.MaxQueueSize {
+			if err = c.app.ms.Pop(queue, routingKey); err != nil {
+				return c.protoError(http.StatusInternalServerError, err.Error())
+			}
+		}
+	}
+
 	id, err := c.app.ms.GenerateID()
 	if err != nil {
 		return c.protoError(http.StatusInternalServerError, "gen msgid error")

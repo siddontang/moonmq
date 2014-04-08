@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"crypto/md5"
 	"encoding/json"
+	"github.com/siddontang/moonmq/proto"
 	"sync"
 	"time"
 )
@@ -61,6 +62,25 @@ func (c *Client) Get() (*Conn, error) {
 	} else {
 		return newConn(c)
 	}
+}
+
+func (c *Client) Publish(queue string, routingKey string, body []byte, pubType string) (int64, error) {
+	conn, err := c.Get()
+	if err != nil {
+		return 0, err
+	}
+
+	defer conn.Close()
+
+	return conn.Publish(queue, routingKey, body, pubType)
+}
+
+func (c *Client) PublishFanout(queue string, routingKey string, body []byte) (int64, error) {
+	return c.Publish(queue, routingKey, body, proto.FanoutTypeStr)
+}
+
+func (c *Client) PublishDirect(queue string, routingKey string, body []byte) (int64, error) {
+	return c.Publish(queue, routingKey, body, proto.DirectTypeStr)
 }
 
 func (c *Client) popConn() *Conn {

@@ -30,6 +30,9 @@ func getTestClient() *client.Client {
 	}
 
 	testClientOnce.Do(f)
+
+	getTestApp()
+
 	return testClient
 }
 
@@ -52,13 +55,11 @@ func testPublish(queue string, routingKey string, body []byte, pubType string) e
 	return err
 }
 
-func TestPublish(t *testing.T) {
+func TestPush(t *testing.T) {
 	if err := testPublish("test_queue", "", []byte("hello world"), "direct"); err != nil {
 		t.Fatal(err)
 	}
-}
 
-func TestPush(t *testing.T) {
 	c := getClientConn()
 	defer c.Close()
 
@@ -80,11 +81,11 @@ func TestPubDirect(t *testing.T) {
 	defer c1.Close()
 	defer c2.Close()
 
-	if err := c1.Bind("test_queue", []string{""}, true); err != nil {
+	if err := c1.Bind("test_queue", []string{"a"}, true); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := c2.Bind("test_queue", []string{""}, true); err != nil {
+	if err := c2.Bind("test_queue", []string{"a"}, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -102,11 +103,11 @@ func TestPubDirect(t *testing.T) {
 	go f(1, c1)
 	go f(2, c2)
 
-	if err := testPublish("test_queue", "", []byte("hello world"), "direct"); err != nil {
+	if err := testPublish("test_queue", "a", []byte("hello world"), "direct"); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := testPublish("test_queue", "", []byte("hello world"), "direct"); err != nil {
+	if err := testPublish("test_queue", "a", []byte("hello world"), "direct"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -137,15 +138,15 @@ func TestPubFanout(t *testing.T) {
 	defer c1.Close()
 	defer c2.Close()
 
-	if err := c1.Bind("test_queue", []string{""}, true); err != nil {
+	if err := c1.Bind("test_queue", []string{"b"}, true); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := c2.Bind("test_queue", []string{""}, true); err != nil {
+	if err := c2.Bind("test_queue", []string{"b"}, true); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := testPublish("test_queue", "", []byte("hello world"), "fanout"); err != nil {
+	if err := testPublish("test_queue", "b", []byte("hello world"), "fanout"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -162,7 +163,7 @@ func TestUnbind(t *testing.T) {
 	c := getClientConn()
 	defer c.Close()
 
-	if err := c.Bind("test_queue", []string{"abc"}, true); err != nil {
+	if err := c.Bind("test_queue", []string{"c"}, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -170,7 +171,7 @@ func TestUnbind(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := testPublish("test_queue", "abc", []byte("123"), "direct"); err != nil {
+	if err := testPublish("test_queue", "c", []byte("123"), "direct"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -178,7 +179,7 @@ func TestUnbind(t *testing.T) {
 		t.Fatal(string(msg))
 	}
 
-	if err := c.Bind("test_queue", []string{"abc"}, true); err != nil {
+	if err := c.Bind("test_queue", []string{"c"}, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -191,11 +192,15 @@ func TestAck(t *testing.T) {
 	c := getClientConn()
 	defer c.Close()
 
-	if err := c.Bind("test_queue", []string{"abc"}, false); err != nil {
+	if err := c.Bind("test_queue", []string{"d"}, false); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := testPublish("test_queue", "abc", []byte("123"), "direct"); err != nil {
+	if err := testPublish("test_queue", "d", []byte("123"), "direct"); err != nil {
 		t.Fatal(err)
+	}
+
+	if msg := c.GetMsg(); string(msg) != "123" {
+		t.Fatal(string(msg))
 	}
 }

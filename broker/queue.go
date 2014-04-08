@@ -13,7 +13,7 @@ type routeQueue struct {
 
 	app *App
 
-	store *msgStore
+	store Store
 
 	queue      string
 	routingKey string
@@ -150,13 +150,15 @@ func (rq *routeQueue) getMsg() (*msg, error) {
 			return nil, nil
 		}
 
-		now := time.Now().Unix()
-		if m.ctime+int64(rq.app.cfg.MessageTimeout) < now {
-			if err := rq.store.Delete(rq.queue, rq.routingKey, m.id); err != nil {
-				return nil, err
+		if rq.app.cfg.MessageTimeout > 0 {
+			now := time.Now().Unix()
+			if m.ctime+int64(rq.app.cfg.MessageTimeout) < now {
+				if err := rq.store.Delete(rq.queue, rq.routingKey, m.id); err != nil {
+					return nil, err
+				}
+			} else {
+				break
 			}
-		} else {
-			break
 		}
 	}
 

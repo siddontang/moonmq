@@ -47,9 +47,14 @@ const (
 	FanoutType uint8 = 1
 )
 
+const (
+	DirectTypeStr = "direct"
+	FanoutTypeStr = "fanout"
+)
+
 var PublishTypeMap = map[string]uint8{
-	"direct": DirectType,
-	"fanout": FanoutType,
+	DirectTypeStr: DirectType,
+	FanoutTypeStr: FanoutType,
 }
 
 const (

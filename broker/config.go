@@ -15,18 +15,12 @@ type Config struct {
 
 	KeepAlive int `json:"keepalive"`
 
-	Redis struct {
-		Net       string `json:"net"`
-		Addr      string `json:"addr"`
-		DB        int    `json:"db"`
-		Password  string `json:"password"`
-		IdleConns int    `json:"idle_conns"`
-	} `json:"redis"`
-
-	KeyPrefix string `json:"key_prefix"`
-
 	MaxMessageSize int `json:"max_msg_size"`
 	MessageTimeout int `json:"msg_timeout"`
+	MaxQueueSize   int `json:"max_queue_size"`
+
+	Store       string          `json:"store"`
+	StoreConfig json.RawMessage `json:"store_config"`
 }
 
 func parseConfigJson(buf json.RawMessage) (*Config, error) {

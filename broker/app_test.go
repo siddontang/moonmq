@@ -15,21 +15,22 @@ var testConfig = `
            "127.0.0.1:11181"
         ],
 
-        "keepalive" : 60,
+        "keepalive":60,
 
-        "password": "admin",
+        "password":"admin",
 
-        "redis": {
-            "net":"tcp",
+        "max_msg_size":1024,
+        "msg_timeout":10,
+        "max_queue_size":1024,
+
+        "store":"redis",
+        "store_config": {
             "addr":"127.0.0.1:6379",
             "db":0,
             "password":"",
-            "idle_conns":16
-        },
-
-        "key_prefix":"test_moonmq",
-        "max_msg_size":1024,
-        "msg_timeout":10
+            "idle_conns":16,
+            "key_prefix":"test_moonmq"
+        }
     }
 `
 

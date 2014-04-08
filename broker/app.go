@@ -19,7 +19,7 @@ type App struct {
 
 	redis *redis.Pool
 
-	ms *msgStore
+	ms Store
 
 	qs *queues
 
@@ -58,40 +58,14 @@ func NewApp(jsonConfig json.RawMessage) (*App, error) {
 
 	app.wheel = timingwheel.NewTimingWheel(time.Second, 3600)
 
-	app.initRedis(cfg)
-
-	app.ms = newMsgStore(app)
-
 	app.qs = newQueues(app)
 
-	return app, nil
-}
-
-func (app *App) initRedis(cfg *Config) {
-	f := func() (redis.Conn, error) {
-		c, err := redis.Dial(cfg.Redis.Net, cfg.Redis.Addr)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(cfg.Redis.Password) > 0 {
-			if _, err = c.Do("AUTH", cfg.Redis.Password); err != nil {
-				c.Close()
-				return nil, err
-			}
-		}
-
-		if cfg.Redis.DB != 0 {
-			if _, err = c.Do("SELECT", cfg.Redis.DB); err != nil {
-				c.Close()
-				return nil, err
-			}
-		}
-
-		return c, nil
+	app.ms, err = OpenStore(cfg.Store, cfg.StoreConfig)
+	if err != nil {
+		return nil, err
 	}
 
-	app.redis = redis.NewPool(f, cfg.Redis.IdleConns)
+	return app, nil
 }
 
 func (app *App) Config() *Config {

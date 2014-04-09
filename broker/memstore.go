@@ -141,3 +141,7 @@ func (s *MemStore) Front(queue string, routingKey string) (*msg, error) {
 		return q[0], nil
 	}
 }
+
+func init() {
+	RegisterStore("mem", MemStoreDriver{})
+}

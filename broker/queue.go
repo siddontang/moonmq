@@ -193,48 +193,56 @@ func (rq *routeQueue) push() {
 	}
 }
 
-func (rq *routeQueue) pushDirect(m *msg) error {
-	var next *list.Element
-	for e := rq.conns.Front(); e != nil; e = next {
-		next = e.Next()
-
-		c := e.Value.(*conn)
-		if err := c.Push(rq.queue, rq.routingKey, m); err != nil {
-			rq.conns.Remove(e)
+func (rq *routeQueue) pushMsg(done chan bool, m *msg, conn *conn) {
+	go func() {
+		if err := conn.Push(rq.queue, rq.routingKey, m); err == nil {
+			//push suc
+			done <- true
 		} else {
-			rq.conns.Remove(e)
-			rq.conns.PushBack(c)
+			done <- false
+		}
+	}()
+}
 
-			rq.waitingAcks[c] = struct{}{}
+func (rq *routeQueue) pushDirect(m *msg) error {
+	e := rq.conns.Front()
 
+	c := e.Value.(*conn)
+
+	rq.conns.Remove(e)
+	rq.conns.PushBack(c)
+
+	rq.waitingAcks[c] = struct{}{}
+
+	done := make(chan bool, 1)
+
+	rq.pushMsg(done, m, c)
+
+	if r := <-done; r == true {
+		return nil
+	} else {
+		return fmt.Errorf("push direct error")
+	}
+}
+
+func (rq *routeQueue) pushFanout(m *msg) error {
+	done := make(chan bool, rq.conns.Len())
+
+	for e := rq.conns.Front(); e != nil; e = e.Next() {
+		c := e.Value.(*conn)
+		rq.waitingAcks[c] = struct{}{}
+
+		rq.pushMsg(done, m, c)
+	}
+
+	for i := 0; i < rq.conns.Len(); i++ {
+		r := <-done
+		if r == true {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("push direct error")
-}
-
-func (rq *routeQueue) pushFanout(m *msg) error {
-	var done bool = false
-	var next *list.Element
-	for e := rq.conns.Front(); e != nil; e = next {
-		next = e.Next()
-
-		c := e.Value.(*conn)
-
-		if err := c.Push(rq.queue, rq.routingKey, m); err != nil {
-			rq.conns.Remove(e)
-		} else {
-			done = true
-			rq.waitingAcks[c] = struct{}{}
-		}
-	}
-
-	if done {
-		return nil
-	} else {
-		return fmt.Errorf("push fanout error")
-	}
+	return fmt.Errorf("push fanout error")
 }
 
 type queues struct {

@@ -21,7 +21,7 @@ type Conn struct {
 
 	decoder *proto.Decoder
 
-	msg chan []byte
+	msg chan *Msg
 
 	grab chan struct{}
 	wait chan *proto.Proto
@@ -49,7 +49,7 @@ func newConn(client *Client) (*Conn, error) {
 
 	c.decoder = proto.NewDecoder(c.conn)
 
-	c.msg = make(chan []byte, 1024)
+	c.msg = make(chan *Msg, 1024)
 
 	c.grab = make(chan struct{}, 1)
 	c.grab <- struct{}{}
@@ -99,9 +99,7 @@ func (c *Conn) run() {
 				<-c.msg
 			}
 
-			c.ack(p)
-
-			c.msg <- p.Body
+			c.msg <- &Msg{p.MsgId(), p.Queue(), p.Body}
 		} else {
 			c.wait <- p
 		}
@@ -164,21 +162,6 @@ func (c *Conn) auth() error {
 	return err
 }
 
-func (c *Conn) ack(pushProto *proto.Proto) error {
-	if pushProto.Value(proto.NoAckStr) == "1" {
-		return nil
-	}
-
-	queue := pushProto.Queue()
-
-	routingKey := pushProto.RoutingKey()
-	msgId := pushProto.MsgId()
-
-	p := proto.NewAckProto(queue, routingKey, msgId)
-
-	return c.writeProto(p.P)
-}
-
 func (c *Conn) keepalive() error {
 	n := time.Now().Unix()
 
@@ -202,8 +185,8 @@ func (c *Conn) Publish(queue string, routingKey string, body []byte, pubType str
 	return strconv.ParseInt(string(np.Body), 10, 64)
 }
 
-func (c *Conn) Bind(queue string, routingKeys []string, noAck bool) error {
-	p := proto.NewBindProto(queue, routingKeys, noAck)
+func (c *Conn) Bind(queue string, routingKey string, noAck bool) error {
+	p := proto.NewBindProto(queue, routingKey, noAck)
 
 	rp, err := c.request(p.P, proto.Bind_OK)
 
@@ -233,15 +216,22 @@ func (c *Conn) Unbind(queue string) error {
 	return nil
 }
 
-func (c *Conn) GetMsg() []byte {
+func (c *Conn) GetMsg() *Msg {
 	return <-c.msg
 }
 
-func (c *Conn) WaitMsg(timeout int) []byte {
+func (c *Conn) WaitMsg(timeout int) *Msg {
 	select {
 	case msg := <-c.msg:
 		return msg
 	case <-time.After(time.Duration(timeout) * time.Second):
 		return nil
 	}
+}
+
+func (c *Conn) Ack(m *Msg) error {
+
+	p := proto.NewAckProto(m.Queue, m.ID)
+
+	return c.writeProto(p.P)
 }

@@ -8,40 +8,47 @@ import (
 	"time"
 )
 
-type routeQueue struct {
+/*
+	push rule
+
+	1, push type: fanout, push to all channels， ignore routing key
+	2, push type: direct, roll-robin to select a channel which routing-key match
+		msg routing-key, if no channel match, discard msg
+
+*/
+
+type queue struct {
 	qs *queues
 
 	app *App
 
 	store Store
 
-	queue      string
-	routingKey string
+	name string
 
-	conns *list.List
+	channels *list.List
 
 	ch chan func()
 
-	waitingAcks map[*conn]struct{}
+	waitingAcks map[*channel]struct{}
 	lastPushId  int64
 }
 
-func newRouteQueue(qs *queues, queue string, routingkey string) *routeQueue {
-	rq := new(routeQueue)
+func newQueue(qs *queues, name string) *queue {
+	rq := new(queue)
 
 	rq.qs = qs
 	rq.app = qs.app
 
 	rq.store = qs.app.ms
 
-	rq.queue = queue
-	rq.routingKey = routingkey
+	rq.name = name
 
-	rq.conns = list.New()
+	rq.channels = list.New()
 
 	rq.lastPushId = -1
 
-	rq.waitingAcks = make(map[*conn]struct{})
+	rq.waitingAcks = make(map[*channel]struct{})
 
 	rq.ch = make(chan func(), 32)
 
@@ -50,17 +57,17 @@ func newRouteQueue(qs *queues, queue string, routingkey string) *routeQueue {
 	return rq
 }
 
-func (rq *routeQueue) run() {
+func (rq *queue) run() {
 	for {
 		select {
 		case f := <-rq.ch:
 			f()
 		case <-rq.app.wheel.After(5 * time.Minute):
-			if rq.conns.Len() == 0 {
+			if rq.channels.Len() == 0 {
 				m, _ := rq.getMsg()
 				if m == nil {
 					//no conn, and no msg
-					rq.qs.Delete(rq.queue, rq.routingKey)
+					rq.qs.Delete(rq.name)
 					return
 				}
 			}
@@ -68,16 +75,16 @@ func (rq *routeQueue) run() {
 	}
 }
 
-func (rq *routeQueue) Bind(c *conn) {
+func (rq *queue) Bind(c *channel) {
 	f := func() {
-		for e := rq.conns.Front(); e != nil; e = e.Next() {
-			if e.Value.(*conn) == c {
+		for e := rq.channels.Front(); e != nil; e = e.Next() {
+			if e.Value.(*channel) == c {
 
 				return
 			}
 		}
 
-		rq.conns.PushBack(c)
+		rq.channels.PushBack(c)
 
 		rq.push()
 	}
@@ -85,12 +92,12 @@ func (rq *routeQueue) Bind(c *conn) {
 	rq.ch <- f
 }
 
-func (rq *routeQueue) Unbind(c *conn) {
+func (rq *queue) Unbind(c *channel) {
 	f := func() {
 		var repush bool = false
-		for e := rq.conns.Front(); e != nil; e = e.Next() {
-			if e.Value.(*conn) == c {
-				rq.conns.Remove(e)
+		for e := rq.channels.Front(); e != nil; e = e.Next() {
+			if e.Value.(*channel) == c {
+				rq.channels.Remove(e)
 
 				if _, ok := rq.waitingAcks[c]; ok {
 					//conn not ack
@@ -114,15 +121,15 @@ func (rq *routeQueue) Unbind(c *conn) {
 	rq.ch <- f
 }
 
-func (rq *routeQueue) Ack(msgId int64) {
+func (rq *queue) Ack(msgId int64) {
 	f := func() {
 		if msgId != rq.lastPushId {
 			return
 		}
 
-		rq.store.Delete(rq.queue, rq.routingKey, msgId)
+		rq.store.Delete(rq.name, msgId)
 
-		rq.waitingAcks = map[*conn]struct{}{}
+		rq.waitingAcks = map[*channel]struct{}{}
 		rq.lastPushId = -1
 
 		rq.push()
@@ -131,7 +138,7 @@ func (rq *routeQueue) Ack(msgId int64) {
 	rq.ch <- f
 }
 
-func (rq *routeQueue) Push(m *msg) {
+func (rq *queue) Push(m *msg) {
 	f := func() {
 		rq.push()
 	}
@@ -139,11 +146,11 @@ func (rq *routeQueue) Push(m *msg) {
 	rq.ch <- f
 }
 
-func (rq *routeQueue) getMsg() (*msg, error) {
+func (rq *queue) getMsg() (*msg, error) {
 	var m *msg
 	var err error
 	for {
-		m, err = rq.store.Front(rq.queue, rq.routingKey)
+		m, err = rq.store.Front(rq.name)
 		if err != nil {
 			return nil, err
 		} else if m == nil {
@@ -153,7 +160,7 @@ func (rq *routeQueue) getMsg() (*msg, error) {
 		if rq.app.cfg.MessageTimeout > 0 {
 			now := time.Now().Unix()
 			if m.ctime+int64(rq.app.cfg.MessageTimeout) < now {
-				if err := rq.store.Delete(rq.queue, rq.routingKey, m.id); err != nil {
+				if err := rq.store.Delete(rq.name, m.id); err != nil {
 					return nil, err
 				}
 			} else {
@@ -165,12 +172,12 @@ func (rq *routeQueue) getMsg() (*msg, error) {
 	return m, nil
 }
 
-func (rq *routeQueue) push() {
+func (rq *queue) push() {
 	if rq.lastPushId != -1 {
 		return
 	}
 
-	if rq.conns.Len() == 0 {
+	if rq.channels.Len() == 0 {
 		return
 	}
 
@@ -193,9 +200,9 @@ func (rq *routeQueue) push() {
 	}
 }
 
-func (rq *routeQueue) pushMsg(done chan bool, m *msg, conn *conn) {
+func (rq *queue) pushMsg(done chan bool, m *msg, c *channel) {
 	go func() {
-		if err := conn.Push(rq.queue, rq.routingKey, m); err == nil {
+		if err := c.Push(m); err == nil {
 			//push suc
 			done <- true
 		} else {
@@ -204,13 +211,39 @@ func (rq *routeQueue) pushMsg(done chan bool, m *msg, conn *conn) {
 	}()
 }
 
-func (rq *routeQueue) pushDirect(m *msg) error {
-	e := rq.conns.Front()
+func (rq *queue) match(m *msg, c *channel) bool {
+	pubKey := m.routingKey
+	subKey := c.routingKey
 
-	c := e.Value.(*conn)
+	//now simple check same, later check regexp like rabbitmq
+	return pubKey == subKey
+}
 
-	rq.conns.Remove(e)
-	rq.conns.PushBack(c)
+func (rq *queue) pushDirect(m *msg) error {
+	var c *channel = nil
+	for e := rq.channels.Front(); e != nil; e = e.Next() {
+		ch := e.Value.(*channel)
+		if !rq.match(m, ch) {
+			continue
+		}
+		rq.channels.Remove(e)
+		rq.channels.PushBack(ch)
+
+		c = ch
+		break
+	}
+
+	if c == nil {
+		//no channel match, discard msg and push next
+		rq.store.Delete(rq.name, m.id)
+
+		f := func() {
+			rq.push()
+		}
+
+		rq.ch <- f
+		return fmt.Errorf("discard msg")
+	}
 
 	rq.waitingAcks[c] = struct{}{}
 
@@ -225,17 +258,17 @@ func (rq *routeQueue) pushDirect(m *msg) error {
 	}
 }
 
-func (rq *routeQueue) pushFanout(m *msg) error {
-	done := make(chan bool, rq.conns.Len())
+func (rq *queue) pushFanout(m *msg) error {
+	done := make(chan bool, rq.channels.Len())
 
-	for e := rq.conns.Front(); e != nil; e = e.Next() {
-		c := e.Value.(*conn)
+	for e := rq.channels.Front(); e != nil; e = e.Next() {
+		c := e.Value.(*channel)
 		rq.waitingAcks[c] = struct{}{}
 
 		rq.pushMsg(done, m, c)
 	}
 
-	for i := 0; i < rq.conns.Len(); i++ {
+	for i := 0; i < rq.channels.Len(); i++ {
 		r := <-done
 		if r == true {
 			return nil
@@ -249,38 +282,34 @@ type queues struct {
 	sync.Mutex
 	app *App
 
-	routes map[string]*routeQueue
+	qs map[string]*queue
 }
 
 func newQueues(app *App) *queues {
 	qs := new(queues)
 
 	qs.app = app
-	qs.routes = make(map[string]*routeQueue)
+	qs.qs = make(map[string]*queue)
 
 	return qs
 }
 
-func (qs *queues) Get(queue string, routingKey string) *routeQueue {
-	key := fmt.Sprintf("%s-%s", queue, routingKey)
-
+func (qs *queues) Get(name string) *queue {
 	qs.Lock()
-	if r, ok := qs.routes[key]; ok {
+	if r, ok := qs.qs[name]; ok {
 		qs.Unlock()
 		return r
 	} else {
-		r := newRouteQueue(qs, queue, routingKey)
-		qs.routes[key] = r
+		r := newQueue(qs, name)
+		qs.qs[name] = r
 		qs.Unlock()
 		return r
 	}
 }
 
-func (qs *queues) Getx(queue string, routingKey string) *routeQueue {
-	key := fmt.Sprintf("%s-%s", queue, routingKey)
-
+func (qs *queues) Getx(name string) *queue {
 	qs.Lock()
-	r, ok := qs.routes[key]
+	r, ok := qs.qs[name]
 	qs.Unlock()
 
 	if ok {
@@ -291,10 +320,8 @@ func (qs *queues) Getx(queue string, routingKey string) *routeQueue {
 
 }
 
-func (qs *queues) Delete(queue string, routingKey string) {
-	key := fmt.Sprintf("%s-%s", queue, routingKey)
-
+func (qs *queues) Delete(name string) {
 	qs.Lock()
-	delete(qs.routes, key)
+	delete(qs.qs, name)
 	qs.Unlock()
 }

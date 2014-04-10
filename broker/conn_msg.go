@@ -16,11 +16,13 @@ func (c *conn) handlePublish(p *proto.Proto) error {
 	message := p.Body
 
 	if len(message) == 0 {
-		return c.protoError(http.StatusForbidden, "publish empty data forbidden")
-	}
-
-	if len(queue) == 0 {
-		return c.protoError(http.StatusForbidden, "queue must supplied")
+		return c.protoError(http.StatusBadRequest, "publish empty data forbidden")
+	} else if len(queue) == 0 {
+		return c.protoError(http.StatusBadRequest, "queue empty forbidden")
+	} else if len(queue) > proto.MaxQueueName {
+		return c.protoError(http.StatusBadRequest, "queue too long")
+	} else if len(routingKey) > proto.MaxRoutingKeyName {
+		return c.protoError(http.StatusBadRequest, "routingkey too long")
 	}
 
 	t, ok := proto.PublishTypeMap[strings.ToLower(tp)]
@@ -30,10 +32,10 @@ func (c *conn) handlePublish(p *proto.Proto) error {
 	}
 
 	if c.app.cfg.MaxQueueSize > 0 {
-		if n, err := c.app.ms.Len(queue, routingKey); err != nil {
+		if n, err := c.app.ms.Len(queue); err != nil {
 			return c.protoError(http.StatusInternalServerError, err.Error())
 		} else if n >= c.app.cfg.MaxQueueSize {
-			if err = c.app.ms.Pop(queue, routingKey); err != nil {
+			if err = c.app.ms.Pop(queue); err != nil {
 				return c.protoError(http.StatusInternalServerError, err.Error())
 			}
 		}
@@ -44,13 +46,13 @@ func (c *conn) handlePublish(p *proto.Proto) error {
 		return c.protoError(http.StatusInternalServerError, "gen msgid error")
 	}
 
-	msg := newMsg(id, t, message)
+	msg := newMsg(id, t, routingKey, message)
 
-	if err := c.app.ms.Save(queue, routingKey, msg); err != nil {
+	if err := c.app.ms.Save(queue, msg); err != nil {
 		return c.protoError(http.StatusInternalServerError, "save message error")
 	}
 
-	q := c.app.qs.Get(queue, routingKey)
+	q := c.app.qs.Get(queue)
 	q.Push(msg)
 
 	np := proto.NewPublishOKProto(strconv.FormatInt(id, 10))
@@ -67,47 +69,17 @@ func (c *conn) handleAck(p *proto.Proto) error {
 		return c.protoError(http.StatusForbidden, "queue must supplied")
 	}
 
-	if _, ok := c.routes[queue]; !ok {
+	ch, ok := c.channels[queue]
+	if !ok {
 		return c.protoError(http.StatusForbidden, "invalid queue")
 	}
-
-	routingKey := p.RoutingKey()
 
 	msgId, err := strconv.ParseInt(p.MsgId(), 10, 64)
 	if err != nil {
 		return err
 	}
 
-	q := c.app.qs.Getx(queue, routingKey)
-	if q == nil {
-		return c.protoError(http.StatusBadRequest, "invalid ack fields")
-	}
-
-	q.Ack(msgId)
+	ch.Ack(msgId)
 
 	return nil
-}
-
-func (c *conn) Push(queue string, routingKey string, m *msg) error {
-	noAck := c.HasNoAck(queue)
-
-	p := proto.NewPushProto(queue, routingKey,
-		strconv.FormatInt(m.id, 10), m.body, noAck)
-
-	err := c.writeProto(p.P)
-
-	if err == nil && noAck {
-		q := c.app.qs.Getx(queue, routingKey)
-		q.Ack(m.id)
-	}
-
-	return err
-}
-
-func (c *conn) HasNoAck(queue string) bool {
-	if _, ok := c.noAcks[queue]; ok {
-		return true
-	} else {
-		return false
-	}
 }

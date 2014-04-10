@@ -1,29 +1,21 @@
 package proto
 
-import (
-	"strings"
-)
-
 // Method: Bind
 // Fields:
 //     Queue: xxx
-//     Routing-Key: xxx,xxx //sep by comma
+//     Routing-Key: xxx
 //     No-Ack: 1 or none
 // Body: nil
 type BindProto struct {
 	P *Proto
 }
 
-func NewBindProto(queue string, routingKeys []string, noAck bool) *BindProto {
+func NewBindProto(queue string, routingKey string, noAck bool) *BindProto {
 	var p BindProto
-
-	if routingKeys == nil {
-		routingKeys = []string{}
-	}
 
 	p.P = NewProto(Bind, map[string]string{
 		QueueStr:      queue,
-		RoutingKeyStr: strings.Join(routingKeys, ","),
+		RoutingKeyStr: routingKey,
 	}, nil)
 
 	if noAck {

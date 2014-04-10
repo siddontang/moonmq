@@ -58,6 +58,6 @@ var PublishTypeMap = map[string]uint8{
 }
 
 const (
-	MaxQueueName      = 128
-	MaxRoutingKeyName = 128
+	MaxQueueName      = 200
+	MaxRoutingKeyName = 200
 )

@@ -7,25 +7,27 @@ import (
 )
 
 type msg struct {
-	id      int64
-	ctime   int64
-	pubType uint8
-	body    []byte
+	id         int64
+	ctime      int64
+	pubType    uint8
+	routingKey string
+	body       []byte
 }
 
-func newMsg(id int64, pubType uint8, body []byte) *msg {
+func newMsg(id int64, pubType uint8, routingKey string, body []byte) *msg {
 	m := new(msg)
 
 	m.id = id
 	m.ctime = time.Now().Unix()
 	m.pubType = pubType
+	m.routingKey = routingKey
 	m.body = body
 
 	return m
 }
 
 func (m *msg) Encode() ([]byte, error) {
-	lenBuf := 4 + 8 + 8 + 1 + len(m.body)
+	lenBuf := 4 + 8 + 8 + 1 + 1 + len(m.routingKey) + len(m.body)
 	buf := make([]byte, lenBuf)
 
 	pos := 0
@@ -42,12 +44,18 @@ func (m *msg) Encode() ([]byte, error) {
 	buf[pos] = byte(m.pubType)
 	pos++
 
+	buf[pos] = byte(len(m.routingKey))
+	pos++
+
+	copy(buf[pos:], m.routingKey)
+	pos += len(m.routingKey)
+
 	copy(buf[pos:], m.body)
 	return buf, nil
 }
 
 func (m *msg) Decode(buf []byte) error {
-	if len(buf) < 13 {
+	if len(buf) < 4 {
 		return fmt.Errorf("buf too short")
 	}
 
@@ -66,6 +74,11 @@ func (m *msg) Decode(buf []byte) error {
 	pos += 8
 	m.pubType = uint8(buf[pos])
 	pos++
+
+	keyLen := int(uint8(buf[pos]))
+	pos++
+	m.routingKey = string(buf[pos : pos+keyLen])
+	pos += keyLen
 
 	m.body = buf[pos:]
 

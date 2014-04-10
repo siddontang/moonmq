@@ -6,7 +6,7 @@ import (
 )
 
 func TestMsg(t *testing.T) {
-	m := newMsg(0, 0, []byte("hello world"))
+	m := newMsg(0, 0, "abc", []byte("hello world"))
 
 	buf, err := m.Encode()
 	if err != nil {
@@ -33,13 +33,13 @@ func TestMsgStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := newMsg(id, 0, []byte("hello world"))
+	m := newMsg(id, 0, "abc", []byte("hello world"))
 
-	if err := s.Save("test_queue", "key", m); err != nil {
+	if err := s.Save("test_queue", m); err != nil {
 		t.Fatal(err)
 	}
 
-	if m1, err := s.Front("test_queue", "key"); err != nil {
+	if m1, err := s.Front("test_queue"); err != nil {
 		t.Fatal(err)
 	} else {
 		if !reflect.DeepEqual(m, m1) {
@@ -47,11 +47,11 @@ func TestMsgStore(t *testing.T) {
 		}
 	}
 
-	if err := s.Delete("test_queue", "key", m.id); err != nil {
+	if err := s.Delete("test_queue", m.id); err != nil {
 		t.Fatal(err)
 	}
 
-	if m, err = s.Front("test_queue", "key"); err != nil {
+	if m, err = s.Front("test_queue"); err != nil {
 		t.Fatal(err)
 	} else if m != nil {
 		t.Fatal("delete failed")

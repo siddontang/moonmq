@@ -3,38 +3,29 @@ package broker
 import (
 	"github.com/siddontang/moonmq/proto"
 	"net/http"
-	"strings"
 )
 
 func (c *conn) handleBind(p *proto.Proto) error {
 	queue := p.Queue()
+	routingKey := p.RoutingKey()
+
 	if len(queue) == 0 {
-		return c.protoError(http.StatusForbidden, "queue must supplied")
+		return c.protoError(http.StatusBadRequest, "queue empty forbidden")
+	} else if len(queue) > proto.MaxQueueName {
+		return c.protoError(http.StatusBadRequest, "queue too long")
+	} else if len(routingKey) > proto.MaxRoutingKeyName {
+		return c.protoError(http.StatusBadRequest, "routingkey too long")
 	}
 
 	noAck := (p.Value(proto.NoAckStr) == "1")
 
-	if noAck {
-		c.noAcks[queue] = struct{}{}
-	}
-
-	routingKeys := strings.Split(p.RoutingKey(), ",")
-
-	rqs, ok := c.routes[queue]
-	if ok {
-		for _, routingKey := range rqs {
-			rq := c.app.qs.Getx(queue, routingKey)
-			if rq != nil {
-				rq.Unbind(c)
-			}
-		}
-	}
-
-	c.routes[queue] = routingKeys
-
-	for _, routingKey := range routingKeys {
-		rq := c.app.qs.Get(queue, routingKey)
-		rq.Bind(c)
+	ch, ok := c.channels[queue]
+	if !ok {
+		q := c.app.qs.Getx(queue)
+		ch = newChannel(c, q, routingKey, noAck)
+		c.channels[queue] = ch
+	} else {
+		ch.Reset(routingKey, noAck)
 	}
 
 	np := proto.NewBindOKProto(queue)
@@ -44,45 +35,20 @@ func (c *conn) handleBind(p *proto.Proto) error {
 	return nil
 }
 
-func (c *conn) unbindAll() error {
-	c.noAcks = map[string]struct{}{}
-
-	for queue, rqs := range c.routes {
-		for _, routingKey := range rqs {
-			rq := c.app.qs.Getx(queue, routingKey)
-			if rq != nil {
-				rq.Unbind(c)
-			}
-		}
-	}
-
-	c.routes = map[string][]string{}
-
-	np := proto.NewUnbindProto("")
-
-	c.writeProto(np.P)
-
-	return nil
-}
-
 func (c *conn) handleUnbind(p *proto.Proto) error {
 	queue := p.Queue()
 	if len(queue) == 0 {
-		return c.unbindAll()
+		c.unBindAll()
+
+		np := proto.NewUnbindOKProto(queue)
+
+		c.writeProto(np.P)
+		return nil
 	}
 
-	delete(c.noAcks, queue)
-
-	rqs, ok := c.routes[queue]
-	if ok {
-		delete(c.routes, queue)
-
-		for _, routingKey := range rqs {
-			rq := c.app.qs.Getx(queue, routingKey)
-			if rq != nil {
-				rq.Unbind(c)
-			}
-		}
+	if ch, ok := c.channels[queue]; ok {
+		delete(c.channels, queue)
+		ch.Close()
 	}
 
 	np := proto.NewUnbindOKProto(queue)

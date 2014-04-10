@@ -38,12 +38,12 @@ func (s *MemStore) GenerateID() (int64, error) {
 	return s.msgID, nil
 }
 
-func (s *MemStore) key(queue string, routingKey string) string {
-	return fmt.Sprintf("%s:%s", queue, routingKey)
+func (s *MemStore) key(queue string) string {
+	return fmt.Sprintf("%s", queue)
 }
 
-func (s *MemStore) Save(queue string, routingKey string, m *msg) error {
-	key := s.key(queue, routingKey)
+func (s *MemStore) Save(queue string, m *msg) error {
+	key := s.key(queue)
 
 	s.Lock()
 	defer s.Unlock()
@@ -58,8 +58,8 @@ func (s *MemStore) Save(queue string, routingKey string, m *msg) error {
 	return nil
 }
 
-func (s *MemStore) Delete(queue string, routingKey string, msgId int64) error {
-	key := s.key(queue, routingKey)
+func (s *MemStore) Delete(queue string, msgId int64) error {
+	key := s.key(queue)
 
 	s.Lock()
 	defer s.Unlock()
@@ -88,8 +88,8 @@ func (s *MemStore) Delete(queue string, routingKey string, msgId int64) error {
 	return nil
 }
 
-func (s *MemStore) Pop(queue string, routingKey string) error {
-	key := s.key(queue, routingKey)
+func (s *MemStore) Pop(queue string) error {
+	key := s.key(queue)
 
 	s.Lock()
 	defer s.Unlock()
@@ -110,8 +110,8 @@ func (s *MemStore) Pop(queue string, routingKey string) error {
 	return nil
 }
 
-func (s *MemStore) Len(queue string, routingKey string) (int, error) {
-	key := s.key(queue, routingKey)
+func (s *MemStore) Len(queue string) (int, error) {
+	key := s.key(queue)
 
 	s.Lock()
 	defer s.Unlock()
@@ -124,8 +124,8 @@ func (s *MemStore) Len(queue string, routingKey string) (int, error) {
 	return len(q), nil
 }
 
-func (s *MemStore) Front(queue string, routingKey string) (*msg, error) {
-	key := s.key(queue, routingKey)
+func (s *MemStore) Front(queue string) (*msg, error) {
+	key := s.key(queue)
 
 	s.Lock()
 	defer s.Unlock()

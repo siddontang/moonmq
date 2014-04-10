@@ -23,11 +23,9 @@ type conn struct {
 
 	lastUpdate int64
 
-	routes map[string][]string
-
-	noAcks map[string]struct{}
-
 	authed bool
+
+	channels map[string]*channel
 }
 
 func newConn(app *App, co net.Conn) *conn {
@@ -42,14 +40,25 @@ func newConn(app *App, co net.Conn) *conn {
 
 	c.checkKeepAlive()
 
-	c.routes = make(map[string][]string)
-	c.noAcks = make(map[string]struct{})
+	c.channels = make(map[string]*channel)
 
 	return c
 }
 
 func (c *conn) run() {
 	c.onRead()
+
+	c.unBindAll()
+
+	c.c.Close()
+}
+
+func (c *conn) unBindAll() {
+	for _, ch := range c.channels {
+		ch.Close()
+	}
+
+	c.channels = map[string]*channel{}
 }
 
 func (c *conn) onRead() {
@@ -59,11 +68,6 @@ func (c *conn) onRead() {
 			buf = buf[:runtime.Stack(buf, false)]
 			log.Fatal("crash %v:%v", err, buf)
 		}
-
-		c.unbindAll()
-
-		c.c.Close()
-
 	}()
 
 	for {

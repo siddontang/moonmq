@@ -63,14 +63,14 @@ func TestPush(t *testing.T) {
 	c := getClientConn()
 	defer c.Close()
 
-	err := c.Bind("test_queue", nil, true)
+	err := c.Bind("test_queue", "", true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	msg := c.GetMsg()
-	if string(msg) != "hello world" {
-		t.Fatal(string(msg))
+	if string(msg.Body) != "hello world" {
+		t.Fatal(string(msg.Body))
 	}
 }
 
@@ -81,20 +81,20 @@ func TestPubDirect(t *testing.T) {
 	defer c1.Close()
 	defer c2.Close()
 
-	if err := c1.Bind("test_queue", []string{"a"}, true); err != nil {
+	if err := c1.Bind("test_queue", "a", true); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := c2.Bind("test_queue", []string{"a"}, true); err != nil {
+	if err := c2.Bind("test_queue", "a", true); err != nil {
 		t.Fatal(err)
 	}
 
 	wait := make(chan int, 2)
 	f := func(id int, c *client.Conn) {
 		msg := c.GetMsg()
-		if string(msg) != "hello world" {
-			println(string(msg), "error")
-			t.Fatal(string(msg))
+		if string(msg.Body) != "hello world" {
+			println(string(msg.Body), "error")
+			t.Fatal(string(msg.Body))
 		}
 
 		wait <- id
@@ -138,11 +138,11 @@ func TestPubFanout(t *testing.T) {
 	defer c1.Close()
 	defer c2.Close()
 
-	if err := c1.Bind("test_queue", []string{"b"}, true); err != nil {
+	if err := c1.Bind("test_queue", "b", true); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := c2.Bind("test_queue", []string{"b"}, true); err != nil {
+	if err := c2.Bind("test_queue", "b", true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -150,12 +150,12 @@ func TestPubFanout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if msg := c1.GetMsg(); string(msg) != "hello world" {
-		t.Fatal(string(msg))
+	if msg := c1.GetMsg(); string(msg.Body) != "hello world" {
+		t.Fatal(string(msg.Body))
 	}
 
-	if msg := c2.GetMsg(); string(msg) != "hello world" {
-		t.Fatal(string(msg))
+	if msg := c2.GetMsg(); string(msg.Body) != "hello world" {
+		t.Fatal(string(msg.Body))
 	}
 }
 
@@ -163,7 +163,7 @@ func TestUnbind(t *testing.T) {
 	c := getClientConn()
 	defer c.Close()
 
-	if err := c.Bind("test_queue", []string{"c"}, true); err != nil {
+	if err := c.Bind("test_queue", "c", true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -176,15 +176,15 @@ func TestUnbind(t *testing.T) {
 	}
 
 	if msg := c.WaitMsg(1); msg != nil {
-		t.Fatal(string(msg))
+		t.Fatal(string(msg.Body))
 	}
 
-	if err := c.Bind("test_queue", []string{"c"}, true); err != nil {
+	if err := c.Bind("test_queue", "c", true); err != nil {
 		t.Fatal(err)
 	}
 
-	if msg := c.GetMsg(); string(msg) != "123" {
-		t.Fatal(string(msg))
+	if msg := c.GetMsg(); string(msg.Body) != "123" {
+		t.Fatal(string(msg.Body))
 	}
 }
 
@@ -192,7 +192,7 @@ func TestAck(t *testing.T) {
 	c := getClientConn()
 	defer c.Close()
 
-	if err := c.Bind("test_queue", []string{"d"}, false); err != nil {
+	if err := c.Bind("test_queue", "d", false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -200,7 +200,11 @@ func TestAck(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if msg := c.GetMsg(); string(msg) != "123" {
-		t.Fatal(string(msg))
+	if msg := c.GetMsg(); string(msg.Body) != "123" {
+		t.Fatal(string(msg.Body))
+	} else {
+		if err := c.Ack(msg); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

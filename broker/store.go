@@ -11,11 +11,11 @@ type StoreDriver interface {
 
 type Store interface {
 	GenerateID() (int64, error)
-	Save(queue string, routingKey string, m *msg) error
-	Delete(queue string, routingKey string, msgId int64) error
-	Pop(queue string, routingKey string) error
-	Len(queue string, routingKey string) (int, error)
-	Front(queue string, routingKey string) (*msg, error)
+	Save(queue string, m *msg) error
+	Delete(queue string, msgId int64) error
+	Pop(queue string) error
+	Len(queue string) (int, error)
+	Front(queue string) (*msg, error)
 }
 
 var stores = map[string]StoreDriver{}

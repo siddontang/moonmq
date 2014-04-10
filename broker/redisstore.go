@@ -75,8 +75,8 @@ func newRedisStore(jsonConfig json.RawMessage) (*RedisStore, error) {
 	return s, nil
 }
 
-func (s *RedisStore) key(queue string, routingKey string) string {
-	return fmt.Sprintf("%s:queue:%s:%s", s.keyPrefix, queue, routingKey)
+func (s *RedisStore) key(queue string) string {
+	return fmt.Sprintf("%s:queue:%s", s.keyPrefix, queue)
 }
 
 func (s *RedisStore) GenerateID() (int64, error) {
@@ -88,8 +88,8 @@ func (s *RedisStore) GenerateID() (int64, error) {
 	return n, err
 }
 
-func (s *RedisStore) Save(queue string, routingKey string, m *msg) error {
-	key := s.key(queue, routingKey)
+func (s *RedisStore) Save(queue string, m *msg) error {
+	key := s.key(queue)
 
 	buf, _ := m.Encode()
 
@@ -100,8 +100,8 @@ func (s *RedisStore) Save(queue string, routingKey string, m *msg) error {
 	return err
 }
 
-func (s *RedisStore) Delete(queue string, routingKey string, msgId int64) error {
-	key := s.key(queue, routingKey)
+func (s *RedisStore) Delete(queue string, msgId int64) error {
+	key := s.key(queue)
 	c := s.redis.Get()
 	_, err := c.Do("ZREMRANGEBYSCORE", key, msgId, msgId)
 	c.Close()
@@ -109,8 +109,8 @@ func (s *RedisStore) Delete(queue string, routingKey string, msgId int64) error 
 	return err
 }
 
-func (s *RedisStore) Pop(queue string, routingKey string) error {
-	key := s.key(queue, routingKey)
+func (s *RedisStore) Pop(queue string) error {
+	key := s.key(queue)
 	c := s.redis.Get()
 	_, err := c.Do("ZREMRANGEBYRANK", key, 0, 0)
 	c.Close()
@@ -118,8 +118,8 @@ func (s *RedisStore) Pop(queue string, routingKey string) error {
 	return err
 }
 
-func (s *RedisStore) Len(queue string, routingKey string) (int, error) {
-	key := s.key(queue, routingKey)
+func (s *RedisStore) Len(queue string) (int, error) {
+	key := s.key(queue)
 	c := s.redis.Get()
 	n, err := redis.Int(c.Do("ZCOUNT", key, "-inf", "+inf"))
 	c.Close()
@@ -127,8 +127,8 @@ func (s *RedisStore) Len(queue string, routingKey string) (int, error) {
 	return n, err
 }
 
-func (s *RedisStore) Front(queue string, routingKey string) (*msg, error) {
-	key := s.key(queue, routingKey)
+func (s *RedisStore) Front(queue string) (*msg, error) {
+	key := s.key(queue)
 	c := s.redis.Get()
 
 	vs, err := redis.Values(c.Do("ZRANGE", key, 0, 0))

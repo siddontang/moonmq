@@ -12,59 +12,58 @@ func testStore(s Store) error {
 		return err
 	}
 
-	m1 := newMsg(id1, 1, []byte("1"))
+	m1 := newMsg(id1, 1, "abc", []byte("1"))
 
 	id2, err := s.GenerateID()
 	if err != nil {
 		return err
 	}
 
-	m2 := newMsg(id2, 0, []byte("2"))
+	m2 := newMsg(id2, 0, "abc", []byte("2"))
 
 	queue := "test_store"
-	routingKey := "abc"
 
-	if err = s.Save(queue, routingKey, m1); err != nil {
+	if err = s.Save(queue, m1); err != nil {
 		return err
 	}
 
-	if err = s.Save(queue, routingKey, m2); err != nil {
+	if err = s.Save(queue, m2); err != nil {
 		return err
 	}
 
-	if n, err := s.Len(queue, routingKey); err != nil {
+	if n, err := s.Len(queue); err != nil {
 		return err
 	} else if n != 2 {
 		return fmt.Errorf("%d != 2", n)
 	}
 
-	if m, err := s.Front(queue, routingKey); err != nil {
+	if m, err := s.Front(queue); err != nil {
 		return err
 	} else if !reflect.DeepEqual(m1, m) {
 		return fmt.Errorf("not equal")
 	}
 
-	if err := s.Pop(queue, routingKey); err != nil {
+	if err := s.Pop(queue); err != nil {
 		return err
 	}
 
-	if n, err := s.Len(queue, routingKey); err != nil {
+	if n, err := s.Len(queue); err != nil {
 		return err
 	} else if n != 1 {
 		return fmt.Errorf("%d != 1", n)
 	}
 
-	if m, err := s.Front(queue, routingKey); err != nil {
+	if m, err := s.Front(queue); err != nil {
 		return err
 	} else if !reflect.DeepEqual(m2, m) {
 		return fmt.Errorf("not equal")
 	}
 
-	if err := s.Delete(queue, routingKey, m2.id); err != nil {
+	if err := s.Delete(queue, m2.id); err != nil {
 		return err
 	}
 
-	if n, err := s.Len(queue, routingKey); err != nil {
+	if n, err := s.Len(queue); err != nil {
 		return err
 	} else if n != 0 {
 		return fmt.Errorf("%d != 0", n)

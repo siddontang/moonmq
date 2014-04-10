@@ -75,8 +75,8 @@ func (c *Client) Publish(queue string, routingKey string, body []byte, pubType s
 	return conn.Publish(queue, routingKey, body, pubType)
 }
 
-func (c *Client) PublishFanout(queue string, routingKey string, body []byte) (int64, error) {
-	return c.Publish(queue, routingKey, body, proto.FanoutTypeStr)
+func (c *Client) PublishFanout(queue string, body []byte) (int64, error) {
+	return c.Publish(queue, "", body, proto.FanoutTypeStr)
 }
 
 func (c *Client) PublishDirect(queue string, routingKey string, body []byte) (int64, error) {

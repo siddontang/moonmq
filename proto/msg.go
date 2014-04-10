@@ -6,7 +6,7 @@ package proto
 //     Routing-Key: xxx
 //     //type: direct|fanout
 //     //direct select a consumer to push using round-robin
-//     //fanout broadcast to all consumers
+//     //fanout broadcast to all consumers, ignore routing-key
 //     Type: xxx
 // Body:
 //     body
@@ -44,28 +44,20 @@ func NewPublishOKProto(msgId string) *PublishOKProto {
 // Method: Push
 // Fields:
 //     Queue: xxx
-//     Routing-Key: xxx
 //     Msg-Id: xxx
-//     //if set no ack, client can not response ack
-//     No-Ack: 1
 // Body:
 //     body
 type PushProto struct {
 	P *Proto
 }
 
-func NewPushProto(queue string, routingKey string, msgId string, body []byte, noAck bool) *PushProto {
+func NewPushProto(queue string, msgId string, body []byte) *PushProto {
 	var p PushProto
 
 	p.P = NewProto(Push, map[string]string{
-		QueueStr:      queue,
-		RoutingKeyStr: routingKey,
-		MsgIdStr:      msgId,
+		QueueStr: queue,
+		MsgIdStr: msgId,
 	}, body)
-
-	if noAck {
-		p.P.Fields[NoAckStr] = "1"
-	}
 
 	return &p
 }
@@ -73,19 +65,17 @@ func NewPushProto(queue string, routingKey string, msgId string, body []byte, no
 // Method: Ack
 // Fields:
 //     Queue: xxx
-//     Routing-Key: xxx
 //     Msg-Id: xxx (int64 string)
 type AckProto struct {
 	P *Proto
 }
 
-func NewAckProto(queue string, routingKey string, msgId string) *AckProto {
+func NewAckProto(queue string, msgId string) *AckProto {
 	var p AckProto
 
 	p.P = NewProto(Ack, map[string]string{
-		QueueStr:      queue,
-		RoutingKeyStr: routingKey,
-		MsgIdStr:      msgId,
+		QueueStr: queue,
+		MsgIdStr: msgId,
 	}, nil)
 
 	return &p

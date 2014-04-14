@@ -279,7 +279,7 @@ func (rq *queue) pushFanout(m *msg) error {
 }
 
 type queues struct {
-	sync.Mutex
+	sync.RWMutex
 	app *App
 
 	qs map[string]*queue
@@ -308,9 +308,9 @@ func (qs *queues) Get(name string) *queue {
 }
 
 func (qs *queues) Getx(name string) *queue {
-	qs.Lock()
+	qs.RLock()
 	r, ok := qs.qs[name]
-	qs.Unlock()
+	qs.RUnlock()
 
 	if ok {
 		return r

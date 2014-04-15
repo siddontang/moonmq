@@ -4,18 +4,14 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"github.com/garyburd/redigo/redis"
-	"github.com/siddontang/golib/timingwheel"
 	"net"
 	"strings"
-	"time"
 )
 
 type App struct {
 	cfg *Config
 
 	listeners []net.Listener
-
-	wheel *timingwheel.TimingWheel
 
 	redis *redis.Pool
 
@@ -55,8 +51,6 @@ func NewApp(jsonConfig json.RawMessage) (*App, error) {
 			return nil, err
 		}
 	}
-
-	app.wheel = timingwheel.NewTimingWheel(time.Second, 3600)
 
 	app.qs = newQueues(app)
 

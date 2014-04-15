@@ -62,7 +62,7 @@ func (rq *queue) run() {
 		select {
 		case f := <-rq.ch:
 			f()
-		case <-rq.app.wheel.After(5 * time.Minute):
+		case <-time.After(5 * time.Minute):
 			if rq.channels.Len() == 0 {
 				m, _ := rq.getMsg()
 				if m == nil {

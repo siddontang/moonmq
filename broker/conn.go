@@ -171,9 +171,9 @@ func (c *conn) checkKeepAlive() {
 			c.c.Close()
 			return
 		} else {
-			c.app.wheel.AddTask(time.Duration(c.app.cfg.KeepAlive)*time.Second, f)
+			time.AfterFunc(time.Duration(c.app.cfg.KeepAlive)*time.Second, f)
 		}
 	}
 
-	c.app.wheel.AddTask(time.Duration(c.app.cfg.KeepAlive)*time.Second, f)
+	time.AfterFunc(time.Duration(c.app.cfg.KeepAlive)*time.Second, f)
 }

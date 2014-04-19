@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func testStore(s Store) error {
+func testStore(s Store, checkLen bool) error {
 	id1, err := s.GenerateID()
 	if err != nil {
 		return err
@@ -31,10 +31,12 @@ func testStore(s Store) error {
 		return err
 	}
 
-	if n, err := s.Len(queue); err != nil {
-		return err
-	} else if n != 2 {
-		return fmt.Errorf("%d != 2", n)
+	if checkLen {
+		if n, err := s.Len(queue); err != nil {
+			return err
+		} else if n != 2 {
+			return fmt.Errorf("%d != 2", n)
+		}
 	}
 
 	if m, err := s.Front(queue); err != nil {
@@ -47,10 +49,12 @@ func testStore(s Store) error {
 		return err
 	}
 
-	if n, err := s.Len(queue); err != nil {
-		return err
-	} else if n != 1 {
-		return fmt.Errorf("%d != 1", n)
+	if checkLen {
+		if n, err := s.Len(queue); err != nil {
+			return err
+		} else if n != 1 {
+			return fmt.Errorf("%d != 1", n)
+		}
 	}
 
 	if m, err := s.Front(queue); err != nil {
@@ -63,10 +67,12 @@ func testStore(s Store) error {
 		return err
 	}
 
-	if n, err := s.Len(queue); err != nil {
-		return err
-	} else if n != 0 {
-		return fmt.Errorf("%d != 0", n)
+	if checkLen {
+		if n, err := s.Len(queue); err != nil {
+			return err
+		} else if n != 0 {
+			return fmt.Errorf("%d != 0", n)
+		}
 	}
 
 	return nil
@@ -88,7 +94,7 @@ func TestRedisStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := testStore(s); err != nil {
+	if err := testStore(s, true); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -99,7 +105,31 @@ func TestMemStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := testStore(s); err != nil {
+	if err := testStore(s, true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLevelDBStore(t *testing.T) {
+	var config = []byte(`
+    {
+        "path" : "./testdb",
+        "compression":true,
+        "block_size" : 32,
+        "write_buffer_size" : 2,
+        "cache_size" : 20,
+        "key_prefix" : "test_moonmq"
+    }
+    `)
+
+	s, err := newLevelDBStore(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer s.db.Destroy()
+
+	if err := testStore(s, false); err != nil {
 		t.Fatal(err)
 	}
 }

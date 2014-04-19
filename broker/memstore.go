@@ -42,6 +42,10 @@ func (s *MemStore) key(queue string) string {
 	return fmt.Sprintf("%s", queue)
 }
 
+func (s *MemStore) Close() error {
+	return nil
+}
+
 func (s *MemStore) Save(queue string, m *msg) error {
 	key := s.key(queue)
 

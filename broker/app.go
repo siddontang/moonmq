@@ -70,6 +70,8 @@ func (app *App) Close() {
 	for _, l := range app.listeners {
 		l.Close()
 	}
+
+	app.ms.Close()
 }
 
 func (app *App) Run() {

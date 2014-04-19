@@ -79,6 +79,12 @@ func (s *RedisStore) key(queue string) string {
 	return fmt.Sprintf("%s:queue:%s", s.keyPrefix, queue)
 }
 
+func (s *RedisStore) Close() error {
+	s.redis.Close()
+	s.redis = nil
+	return nil
+}
+
 func (s *RedisStore) GenerateID() (int64, error) {
 	key := fmt.Sprintf("%s:base:msg_id", s.keyPrefix)
 	c := s.redis.Get()

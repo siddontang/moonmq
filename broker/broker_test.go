@@ -63,14 +63,14 @@ func TestPush(t *testing.T) {
 	c := getClientConn()
 	defer c.Close()
 
-	err := c.Bind("test_queue", "", true)
+	ch, err := c.Bind("test_queue", "", true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	msg := c.GetMsg()
-	if string(msg.Body) != "hello world" {
-		t.Fatal(string(msg.Body))
+	msg := ch.GetMsg()
+	if string(msg) != "hello world" {
+		t.Fatal(string(msg))
 	}
 }
 
@@ -81,27 +81,31 @@ func TestPubDirect(t *testing.T) {
 	defer c1.Close()
 	defer c2.Close()
 
-	if err := c1.Bind("test_queue", "a", true); err != nil {
+	var ch1 *client.Channel
+	var ch2 *client.Channel
+	var err error
+
+	if ch1, err = c1.Bind("test_queue", "a", true); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := c2.Bind("test_queue", "a", true); err != nil {
+	if ch2, err = c2.Bind("test_queue", "a", true); err != nil {
 		t.Fatal(err)
 	}
 
 	wait := make(chan int, 2)
-	f := func(id int, c *client.Conn) {
-		msg := c.GetMsg()
-		if string(msg.Body) != "hello world" {
-			println(string(msg.Body), "error")
-			t.Fatal(string(msg.Body))
+	f := func(id int, ch *client.Channel) {
+		msg := ch.GetMsg()
+		if string(msg) != "hello world" {
+			println(string(msg), "error")
+			t.Fatal(string(msg))
 		}
 
 		wait <- id
 	}
 
-	go f(1, c1)
-	go f(2, c2)
+	go f(1, ch1)
+	go f(2, ch2)
 
 	if err := testPublish("test_queue", "a", []byte("hello world"), "direct"); err != nil {
 		t.Fatal(err)
@@ -119,10 +123,10 @@ func TestPubDirect(t *testing.T) {
 				t.Fatal(i)
 			}
 
-			i++
 			if i == 2 {
 				return
 			}
+			i++
 		case <-time.After(5 * time.Second):
 			t.Fatal("timeout")
 		}
@@ -138,11 +142,15 @@ func TestPubFanout(t *testing.T) {
 	defer c1.Close()
 	defer c2.Close()
 
-	if err := c1.Bind("test_queue", "b", true); err != nil {
+	var ch1 *client.Channel
+	var ch2 *client.Channel
+	var err error
+
+	if ch1, err = c1.Bind("test_queue", "b", true); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := c2.Bind("test_queue", "b", true); err != nil {
+	if ch2, err = c2.Bind("test_queue", "b", true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -150,12 +158,12 @@ func TestPubFanout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if msg := c1.GetMsg(); string(msg.Body) != "hello world" {
-		t.Fatal(string(msg.Body))
+	if msg := ch1.GetMsg(); string(msg) != "hello world" {
+		t.Fatal(string(msg))
 	}
 
-	if msg := c2.GetMsg(); string(msg.Body) != "hello world" {
-		t.Fatal(string(msg.Body))
+	if msg := ch2.GetMsg(); string(msg) != "hello world" {
+		t.Fatal(string(msg))
 	}
 }
 
@@ -163,11 +171,13 @@ func TestUnbind(t *testing.T) {
 	c := getClientConn()
 	defer c.Close()
 
-	if err := c.Bind("test_queue", "c", true); err != nil {
+	var ch *client.Channel
+	var err error
+	if ch, err = c.Bind("test_queue", "c", true); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := c.Unbind("test_queue"); err != nil {
+	if err := ch.Close(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -175,16 +185,16 @@ func TestUnbind(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if msg := c.WaitMsg(1); msg != nil {
-		t.Fatal(string(msg.Body))
+	if msg := ch.WaitMsg(1 * time.Second); msg != nil {
+		t.Fatal(string(msg))
 	}
 
-	if err := c.Bind("test_queue", "c", true); err != nil {
+	if ch, err = c.Bind("test_queue", "c", true); err != nil {
 		t.Fatal(err)
 	}
 
-	if msg := c.GetMsg(); string(msg.Body) != "123" {
-		t.Fatal(string(msg.Body))
+	if msg := ch.GetMsg(); string(msg) != "123" {
+		t.Fatal(string(msg))
 	}
 }
 
@@ -192,7 +202,9 @@ func TestAck(t *testing.T) {
 	c := getClientConn()
 	defer c.Close()
 
-	if err := c.Bind("test_queue", "d", false); err != nil {
+	var ch *client.Channel
+	var err error
+	if ch, err = c.Bind("test_queue", "d", false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -200,10 +212,10 @@ func TestAck(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if msg := c.GetMsg(); string(msg.Body) != "123" {
-		t.Fatal(string(msg.Body))
+	if msg := ch.GetMsg(); string(msg) != "123" {
+		t.Fatal(string(msg))
 	} else {
-		if err := c.Ack(msg); err != nil {
+		if err := ch.Ack(); err != nil {
 			t.Fatal(err)
 		}
 	}

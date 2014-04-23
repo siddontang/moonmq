@@ -21,14 +21,14 @@ type Conn struct {
 
 	decoder *proto.Decoder
 
-	msg chan *Msg
-
 	grab chan struct{}
 	wait chan *proto.Proto
 
 	closed bool
 
 	lastHeartbeat int64
+
+	channels map[string]*Channel
 }
 
 func newConn(client *Client) (*Conn, error) {
@@ -49,10 +49,10 @@ func newConn(client *Client) (*Conn, error) {
 
 	c.decoder = proto.NewDecoder(c.conn)
 
-	c.msg = make(chan *Msg, 1024)
-
 	c.grab = make(chan struct{}, 1)
 	c.grab <- struct{}{}
+
+	c.channels = make(map[string]*Channel)
 
 	c.wait = make(chan *proto.Proto, 1)
 
@@ -70,7 +70,7 @@ func newConn(client *Client) (*Conn, error) {
 }
 
 func (c *Conn) Close() {
-	c.Unbind("")
+	c.unbindAll()
 
 	c.client.pushConn(c)
 }
@@ -95,11 +95,16 @@ func (c *Conn) run() {
 		}
 
 		if p.Method == proto.Push {
-			if len(c.msg) >= 1024 {
-				<-c.msg
+			queueName := p.Queue()
+			c.Lock()
+			ch, ok := c.channels[queueName]
+			if !ok {
+				c.Unlock()
+				return
 			}
+			c.Unlock()
 
-			c.msg <- &Msg{p.MsgId(), p.Queue(), p.Body}
+			ch.pushMsg(p.MsgId(), p.Body)
 		} else {
 			c.wait <- p
 		}
@@ -185,23 +190,59 @@ func (c *Conn) Publish(queue string, routingKey string, body []byte, pubType str
 	return strconv.ParseInt(string(np.Body), 10, 64)
 }
 
-func (c *Conn) Bind(queue string, routingKey string, noAck bool) error {
+func (c *Conn) Bind(queue string, routingKey string, noAck bool) (*Channel, error) {
+	c.Lock()
+	ch, ok := c.channels[queue]
+	if !ok {
+		ch = newChannel(c, queue, routingKey, noAck)
+		c.channels[queue] = ch
+	} else {
+		if ch.routingKey == routingKey && ch.noAck == noAck {
+			c.Unlock()
+			return ch, nil
+		} else {
+			ch.routingKey = routingKey
+			ch.noAck = noAck
+		}
+	}
+	c.Unlock()
+
 	p := proto.NewBindProto(queue, routingKey, noAck)
 
 	rp, err := c.request(p.P, proto.Bind_OK)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if rp.Queue() != queue {
-		return fmt.Errorf("invalid bind response queue %s", rp.Queue())
+		return nil, fmt.Errorf("invalid bind response queue %s", rp.Queue())
 	}
 
-	return nil
+	return ch, nil
 }
 
-func (c *Conn) Unbind(queue string) error {
+func (c *Conn) unbindAll() error {
+	c.Lock()
+	c.channels = make(map[string]*Channel)
+	c.Unlock()
+
+	p := proto.NewUnbindProto("")
+
+	_, err := c.request(p.P, proto.Unbind_OK)
+	return err
+}
+
+func (c *Conn) unbind(queue string) error {
+	c.Lock()
+	_, ok := c.channels[queue]
+	if !ok {
+		c.Unlock()
+		return fmt.Errorf("queue %s not bind", queue)
+	}
+	delete(c.channels, queue)
+	c.Unlock()
+
 	p := proto.NewUnbindProto(queue)
 
 	rp, err := c.request(p.P, proto.Unbind_OK)
@@ -216,22 +257,8 @@ func (c *Conn) Unbind(queue string) error {
 	return nil
 }
 
-func (c *Conn) GetMsg() *Msg {
-	return <-c.msg
-}
-
-func (c *Conn) WaitMsg(timeout int) *Msg {
-	select {
-	case msg := <-c.msg:
-		return msg
-	case <-time.After(time.Duration(timeout) * time.Second):
-		return nil
-	}
-}
-
-func (c *Conn) Ack(m *Msg) error {
-
-	p := proto.NewAckProto(m.Queue, m.ID)
+func (c *Conn) ack(queue string, msgId string) error {
+	p := proto.NewAckProto(queue, msgId)
 
 	return c.writeProto(p.P)
 }

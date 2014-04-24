@@ -66,7 +66,7 @@ func (c *conn) onRead() {
 		if err := recover(); err != nil {
 			buf := make([]byte, 1024)
 			buf = buf[:runtime.Stack(buf, false)]
-			log.Fatal("crash %v:%v", err, string(buf))
+			log.Fatal("crash %v:%s", err, buf)
 		}
 	}()
 

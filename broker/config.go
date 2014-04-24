@@ -9,7 +9,7 @@ import (
 type Config struct {
 	Version uint32 `json:"version"`
 
-	ListenAddrs []string `json:"listen_addrs"`
+	Addr string `json:"addr"`
 
 	Password string `json:"password"`
 
@@ -21,6 +21,24 @@ type Config struct {
 
 	Store       string          `json:"store"`
 	StoreConfig json.RawMessage `json:"store_config"`
+}
+
+func NewDefaultConfig() *Config {
+	cfg := new(Config)
+
+	cfg.Version = 1
+	cfg.Addr = "127.0.0.1:11181"
+	cfg.Password = ""
+	cfg.KeepAlive = 65
+
+	cfg.MaxMessageSize = 1024
+	cfg.MessageTimeout = 3600 * 24
+	cfg.MaxQueueSize = 1024
+
+	cfg.Store = "mem"
+	cfg.StoreConfig = nil
+
+	return cfg
 }
 
 func parseConfigJson(buf json.RawMessage) (*Config, error) {

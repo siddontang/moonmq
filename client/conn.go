@@ -13,6 +13,8 @@ import (
 type Conn struct {
 	sync.Mutex
 
+	writeLock sync.Mutex
+
 	client *Client
 
 	cfg *Config
@@ -60,6 +62,8 @@ func newConn(client *Client) (*Conn, error) {
 
 	c.lastHeartbeat = 0
 
+	c.keepAlive()
+
 	go c.run()
 
 	if err = c.auth(); err != nil {
@@ -73,6 +77,21 @@ func (c *Conn) Close() {
 	c.unbindAll()
 
 	c.client.pushConn(c)
+}
+
+func (c *Conn) keepAlive() {
+	var f func()
+	f = func() {
+		p := proto.NewHeartbeatProto()
+		err := c.writeProto(p.P)
+		if err != nil {
+			c.close()
+			return
+		} else {
+			time.AfterFunc(time.Duration(c.cfg.KeepAlive)*time.Second, f)
+		}
+	}
+	time.AfterFunc(time.Duration(c.cfg.KeepAlive)*time.Second, f)
 }
 
 func (c *Conn) close() {
@@ -113,11 +132,7 @@ func (c *Conn) run() {
 }
 
 func (c *Conn) request(p *proto.Proto, expectMethod uint32) (*proto.Proto, error) {
-	<-c.grab
-
 	err := c.writeProto(p)
-
-	c.grab <- struct{}{}
 
 	if err != nil {
 		return nil, err
@@ -142,15 +157,15 @@ func (c *Conn) writeProto(p *proto.Proto) error {
 	if err != nil {
 		return err
 	}
-	c.Lock()
+	c.writeLock.Lock()
 	n, err := c.conn.Write(buf)
-	c.Unlock()
+	c.writeLock.Unlock()
 
 	if err != nil {
-		c.conn.Close()
+		c.close()
 		return err
 	} else if n != len(buf) {
-		c.conn.Close()
+		c.close()
 		return fmt.Errorf("write short %d != %d", n, len(buf))
 	}
 
@@ -162,25 +177,19 @@ func (c *Conn) auth() error {
 		return nil
 	}
 
+	c.Lock()
+	defer c.Unlock()
+
 	p := proto.NewAuthProto(c.client.passMD5)
 	_, err := c.request(p.P, proto.Auth_OK)
 	return err
 }
 
-func (c *Conn) keepalive() error {
-	n := time.Now().Unix()
-
-	if n-c.lastHeartbeat < int64(float32(c.cfg.KeepAlive)*0.8) {
-		return nil
-	}
-
-	p := proto.NewHeartbeatProto()
-
-	return c.writeProto(p.P)
-}
-
 func (c *Conn) Publish(queue string, routingKey string, body []byte, pubType string) (int64, error) {
 	p := proto.NewPublishProto(queue, routingKey, pubType, body)
+
+	c.Lock()
+	defer c.Unlock()
 
 	np, err := c.request(p.P, proto.Publish_OK)
 	if err != nil {
@@ -192,20 +201,16 @@ func (c *Conn) Publish(queue string, routingKey string, body []byte, pubType str
 
 func (c *Conn) Bind(queue string, routingKey string, noAck bool) (*Channel, error) {
 	c.Lock()
+	defer c.Unlock()
+
 	ch, ok := c.channels[queue]
 	if !ok {
 		ch = newChannel(c, queue, routingKey, noAck)
 		c.channels[queue] = ch
 	} else {
-		if ch.routingKey == routingKey && ch.noAck == noAck {
-			c.Unlock()
-			return ch, nil
-		} else {
-			ch.routingKey = routingKey
-			ch.noAck = noAck
-		}
+		ch.routingKey = routingKey
+		ch.noAck = noAck
 	}
-	c.Unlock()
 
 	p := proto.NewBindProto(queue, routingKey, noAck)
 
@@ -224,8 +229,9 @@ func (c *Conn) Bind(queue string, routingKey string, noAck bool) (*Channel, erro
 
 func (c *Conn) unbindAll() error {
 	c.Lock()
+	defer c.Unlock()
+
 	c.channels = make(map[string]*Channel)
-	c.Unlock()
 
 	p := proto.NewUnbindProto("")
 
@@ -235,13 +241,14 @@ func (c *Conn) unbindAll() error {
 
 func (c *Conn) unbind(queue string) error {
 	c.Lock()
+	defer c.Unlock()
+
 	_, ok := c.channels[queue]
 	if !ok {
-		c.Unlock()
 		return fmt.Errorf("queue %s not bind", queue)
 	}
+
 	delete(c.channels, queue)
-	c.Unlock()
 
 	p := proto.NewUnbindProto(queue)
 

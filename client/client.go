@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"github.com/siddontang/moonmq/proto"
 	"sync"
-	"time"
 )
 
 type Client struct {
@@ -17,16 +16,12 @@ type Client struct {
 	passMD5 []byte
 
 	conns *list.List
+
+	closed bool
 }
 
-func NewClient(jsonConfig json.RawMessage) (*Client, error) {
+func NewClientWithConfig(cfg *Config) (*Client, error) {
 	c := new(Client)
-
-	cfg, err := parseConfigJson(jsonConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	c.cfg = cfg
 
 	if len(cfg.Password) > 0 {
@@ -35,23 +30,35 @@ func NewClient(jsonConfig json.RawMessage) (*Client, error) {
 	}
 
 	c.conns = list.New()
-
-	go c.run()
+	c.closed = false
 
 	return c, nil
 }
 
-func (c *Client) run() {
-	ticker := time.NewTicker(3 * time.Second)
+func NewClient(jsonConfig json.RawMessage) (*Client, error) {
+	cfg, err := parseConfigJson(jsonConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewClientWithConfig(cfg)
+}
+
+func (c *Client) Close() {
+	c.Lock()
+	defer c.Unlock()
+
+	c.closed = true
+
 	for {
-		select {
-		case <-ticker.C:
-			if co := c.popConn(); co != nil {
-				if err := co.keepalive(); err == nil {
-					c.pushConn(co)
-				}
-			}
+		if c.conns.Len() == 0 {
+			break
 		}
+
+		e := c.conns.Front()
+		c.conns.Remove(e)
+		conn := e.Value.(*Conn)
+		conn.close()
 	}
 }
 
@@ -85,26 +92,29 @@ func (c *Client) PublishDirect(queue string, routingKey string, body []byte) (in
 
 func (c *Client) popConn() *Conn {
 	c.Lock()
-	if c.conns.Len() == 0 {
-		c.Unlock()
-		return nil
-	} else {
-		e := c.conns.Front()
-		c.conns.Remove(e)
+	defer c.Unlock()
 
-		c.Unlock()
-
-		return e.Value.(*Conn)
+	for {
+		if c.conns.Len() == 0 {
+			return nil
+		} else {
+			e := c.conns.Front()
+			c.conns.Remove(e)
+			conn := e.Value.(*Conn)
+			if !conn.closed {
+				return conn
+			}
+		}
 	}
 }
 
 func (c *Client) pushConn(co *Conn) {
 	c.Lock()
-	if c.conns.Len() >= c.cfg.IdleConns {
-		c.Unlock()
+	defer c.Unlock()
+
+	if c.closed || c.conns.Len() >= c.cfg.IdleConns {
 		co.close()
 	} else {
 		c.conns.PushBack(co)
-		c.Unlock()
 	}
 }

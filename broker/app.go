@@ -11,7 +11,7 @@ import (
 type App struct {
 	cfg *Config
 
-	listeners []net.Listener
+	listener net.Listener
 
 	redis *redis.Pool
 
@@ -22,34 +22,26 @@ type App struct {
 	passMD5 []byte
 }
 
-func NewApp(jsonConfig json.RawMessage) (*App, error) {
+func NewAppWithConfig(cfg *Config) (*App, error) {
 	app := new(App)
 
-	var err error
-	var cfg *Config
-	if cfg, err = parseConfigJson(jsonConfig); err != nil {
-		return nil, err
-	}
-
 	app.cfg = cfg
+
+	var err error
 
 	if len(cfg.Password) > 0 {
 		sum := md5.Sum([]byte(cfg.Password))
 		app.passMD5 = sum[0:16]
 	}
 
-	app.listeners = make([]net.Listener, len(cfg.ListenAddrs))
+	var n string = "tcp"
+	if strings.Contains(cfg.Addr, "/") {
+		n = "unix"
+	}
 
-	for i, a := range cfg.ListenAddrs {
-		var n string = "tcp"
-		if strings.Contains(a, "/") {
-			n = "unix"
-		}
-
-		app.listeners[i], err = net.Listen(n, a)
-		if err != nil {
-			return nil, err
-		}
+	app.listener, err = net.Listen(n, cfg.Addr)
+	if err != nil {
+		return nil, err
 	}
 
 	app.qs = newQueues(app)
@@ -62,31 +54,28 @@ func NewApp(jsonConfig json.RawMessage) (*App, error) {
 	return app, nil
 }
 
+func NewApp(jsonConfig json.RawMessage) (*App, error) {
+	cfg, err := parseConfigJson(jsonConfig)
+	if err != nil {
+		return nil, err
+
+	}
+
+	return NewAppWithConfig(cfg)
+}
+
 func (app *App) Config() *Config {
 	return app.cfg
 }
 
 func (app *App) Close() {
-	for _, l := range app.listeners {
-		l.Close()
-	}
-
+	app.listener.Close()
 	app.ms.Close()
 }
 
 func (app *App) Run() {
-	l := app.listeners[0]
-
-	for i := 1; i < len(app.listeners); i++ {
-		go app.listen(l)
-	}
-
-	app.listen(l)
-}
-
-func (app *App) listen(l net.Listener) {
 	for {
-		conn, err := l.Accept()
+		conn, err := app.listener.Accept()
 		if err != nil {
 			continue
 		}

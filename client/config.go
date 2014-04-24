@@ -14,6 +14,18 @@ type Config struct {
 	MaxQueueSize int    `json:"max_queue_size"`
 }
 
+func NewDefaultConfig() *Config {
+	cfg := new(Config)
+
+	cfg.BrokerAddr = "127.0.0.1:11181"
+	cfg.KeepAlive = 60
+	cfg.Password = ""
+	cfg.IdleConns = 2
+	cfg.MaxQueueSize = 16
+
+	return cfg
+}
+
 func parseConfigJson(buf json.RawMessage) (*Config, error) {
 	c := new(Config)
 

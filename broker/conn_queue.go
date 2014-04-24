@@ -21,7 +21,7 @@ func (c *conn) handleBind(p *proto.Proto) error {
 
 	ch, ok := c.channels[queue]
 	if !ok {
-		q := c.app.qs.Getx(queue)
+		q := c.app.qs.Get(queue)
 		ch = newChannel(c, q, routingKey, noAck)
 		c.channels[queue] = ch
 	} else {

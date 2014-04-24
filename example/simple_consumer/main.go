@@ -9,6 +9,8 @@ var addr = flag.String("addr", "127.0.0.1:11181", "moonmq listen address")
 var queue = flag.String("queue", "test_queue", "queue want to bind")
 
 func main() {
+	flag.Parse()
+
 	cfg := client.NewDefaultConfig()
 	cfg.BrokerAddr = *addr
 

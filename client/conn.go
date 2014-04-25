@@ -66,10 +66,6 @@ func newConn(client *Client) (*Conn, error) {
 
 	go c.run()
 
-	if err = c.auth(); err != nil {
-		return nil, err
-	}
-
 	return c, nil
 }
 
@@ -170,19 +166,6 @@ func (c *Conn) writeProto(p *proto.Proto) error {
 	}
 
 	return nil
-}
-
-func (c *Conn) auth() error {
-	if len(c.client.passMD5) == 0 {
-		return nil
-	}
-
-	c.Lock()
-	defer c.Unlock()
-
-	p := proto.NewAuthProto(c.client.passMD5)
-	_, err := c.request(p.P, proto.Auth_OK)
-	return err
 }
 
 func (c *Conn) Publish(queue string, routingKey string, body []byte, pubType string) (int64, error) {

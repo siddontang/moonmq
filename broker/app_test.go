@@ -13,9 +13,9 @@ var testConfig = `
         "version":1,
         "addr": "127.0.0.1:11181",
 
-        "keepalive":60,
+        "http_addr": "127.0.0.1:11180",
 
-        "password":"admin",
+        "keepalive":60,
 
         "max_msg_size":1024,
         "msg_timeout":10,

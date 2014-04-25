@@ -9,7 +9,6 @@ const defaultQueueSize int = 16
 type Config struct {
 	BrokerAddr   string `json:"broker_addr"`
 	KeepAlive    int    `json:"keepalive"`
-	Password     string `json:"password"`
 	IdleConns    int    `json:"idle_conns"`
 	MaxQueueSize int    `json:"max_queue_size"`
 }
@@ -19,7 +18,6 @@ func NewDefaultConfig() *Config {
 
 	cfg.BrokerAddr = "127.0.0.1:11181"
 	cfg.KeepAlive = 60
-	cfg.Password = ""
 	cfg.IdleConns = 2
 	cfg.MaxQueueSize = 16
 

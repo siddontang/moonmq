@@ -1,20 +1,46 @@
 package broker
 
 import (
+	"fmt"
 	"github.com/siddontang/moonmq/proto"
 	"net/http"
+	"strconv"
 )
+
+func checkBind(queue string, routingKey string) error {
+	if len(queue) == 0 {
+		return fmt.Errorf("queue empty forbidden")
+	} else if len(queue) > proto.MaxQueueName {
+		return fmt.Errorf("queue too long")
+	} else if len(routingKey) > proto.MaxRoutingKeyName {
+		return fmt.Errorf("routingkey too long")
+	}
+	return nil
+}
+
+type connMsgPusher struct {
+	c *conn
+}
+
+func (p *connMsgPusher) Push(ch *channel, m *msg) error {
+	po := proto.NewPushProto(ch.q.name,
+		strconv.FormatInt(m.id, 10), m.body)
+
+	err := p.c.writeProto(po.P)
+
+	if err == nil && ch.noAck {
+		ch.Ack(m.id)
+	}
+
+	return err
+}
 
 func (c *conn) handleBind(p *proto.Proto) error {
 	queue := p.Queue()
 	routingKey := p.RoutingKey()
 
-	if len(queue) == 0 {
-		return c.protoError(http.StatusBadRequest, "queue empty forbidden")
-	} else if len(queue) > proto.MaxQueueName {
-		return c.protoError(http.StatusBadRequest, "queue too long")
-	} else if len(routingKey) > proto.MaxRoutingKeyName {
-		return c.protoError(http.StatusBadRequest, "routingkey too long")
+	if err := checkBind(queue, routingKey); err != nil {
+		return c.protoError(http.StatusBadRequest, err.Error())
 	}
 
 	noAck := (p.Value(proto.NoAckStr) == "1")
@@ -22,7 +48,7 @@ func (c *conn) handleBind(p *proto.Proto) error {
 	ch, ok := c.channels[queue]
 	if !ok {
 		q := c.app.qs.Get(queue)
-		ch = newChannel(c, q, routingKey, noAck)
+		ch = newChannel(&connMsgPusher{c}, q, routingKey, noAck)
 		c.channels[queue] = ch
 	} else {
 		ch.Reset(routingKey, noAck)

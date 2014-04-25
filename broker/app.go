@@ -1,10 +1,10 @@
 package broker
 
 import (
-	"crypto/md5"
 	"encoding/json"
 	"github.com/garyburd/redigo/redis"
 	"net"
+	"net/http"
 	"strings"
 )
 
@@ -12,6 +12,8 @@ type App struct {
 	cfg *Config
 
 	listener net.Listener
+
+	httpListener net.Listener
 
 	redis *redis.Pool
 
@@ -29,19 +31,16 @@ func NewAppWithConfig(cfg *Config) (*App, error) {
 
 	var err error
 
-	if len(cfg.Password) > 0 {
-		sum := md5.Sum([]byte(cfg.Password))
-		app.passMD5 = sum[0:16]
-	}
-
-	var n string = "tcp"
-	if strings.Contains(cfg.Addr, "/") {
-		n = "unix"
-	}
-
-	app.listener, err = net.Listen(n, cfg.Addr)
+	app.listener, err = net.Listen(getNetType(cfg.Addr), cfg.Addr)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(cfg.HttpAddr) > 0 {
+		app.httpListener, err = net.Listen(getNetType(cfg.HttpAddr), cfg.HttpAddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	app.qs = newQueues(app)
@@ -52,6 +51,14 @@ func NewAppWithConfig(cfg *Config) (*App, error) {
 	}
 
 	return app, nil
+}
+
+func getNetType(addr string) string {
+	if strings.Contains(addr, "/") {
+		return "unix"
+	} else {
+		return "tcp"
+	}
 }
 
 func NewApp(jsonConfig json.RawMessage) (*App, error) {
@@ -69,11 +76,30 @@ func (app *App) Config() *Config {
 }
 
 func (app *App) Close() {
-	app.listener.Close()
+	if app.listener != nil {
+		app.listener.Close()
+	}
+
+	if app.httpListener != nil {
+		app.httpListener.Close()
+	}
+
 	app.ms.Close()
 }
 
-func (app *App) Run() {
+func (app *App) startHttp() {
+	if app.httpListener == nil {
+		return
+	}
+
+	s := new(http.Server)
+
+	http.Handle("/msg", newMsgHandler(app))
+
+	s.Serve(app.httpListener)
+}
+
+func (app *App) startTcp() {
 	for {
 		conn, err := app.listener.Accept()
 		if err != nil {
@@ -83,4 +109,10 @@ func (app *App) Run() {
 		co := newConn(app, conn)
 		go co.run()
 	}
+}
+
+func (app *App) Run() {
+	go app.startHttp()
+
+	app.startTcp()
 }

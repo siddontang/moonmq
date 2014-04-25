@@ -13,9 +13,6 @@ package proto
 // asynchronous is even number
 
 const (
-	Auth    uint32 = 0
-	Auth_OK uint32 = 1
-
 	Publish    uint32 = 10
 	Publish_OK uint32 = 11
 

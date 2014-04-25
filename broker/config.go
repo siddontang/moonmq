@@ -11,7 +11,7 @@ type Config struct {
 
 	Addr string `json:"addr"`
 
-	Password string `json:"password"`
+	HttpAddr string `json:"http_addr"`
 
 	KeepAlive int `json:"keepalive"`
 
@@ -28,7 +28,8 @@ func NewDefaultConfig() *Config {
 
 	cfg.Version = 1
 	cfg.Addr = "127.0.0.1:11181"
-	cfg.Password = ""
+	cfg.HttpAddr = "127.0.0.1:11180"
+
 	cfg.KeepAlive = 65
 
 	cfg.MaxMessageSize = 1024

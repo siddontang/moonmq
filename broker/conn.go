@@ -1,7 +1,6 @@
 package broker
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/siddontang/golib/log"
 	"github.com/siddontang/moonmq/proto"
@@ -23,8 +22,6 @@ type conn struct {
 
 	lastUpdate int64
 
-	authed bool
-
 	channels map[string]*channel
 }
 
@@ -33,8 +30,6 @@ func newConn(app *App, co net.Conn) *conn {
 
 	c.app = app
 	c.c = co
-
-	c.authed = false
 
 	c.decoder = proto.NewDecoder(co)
 
@@ -79,50 +74,26 @@ func (c *conn) onRead() {
 			return
 		}
 
-		if p.Method == proto.Auth {
-			err = c.handleAuth(p)
-		} else {
-			if len(c.app.passMD5) > 0 && !c.authed {
-				err = fmt.Errorf("must auth first")
-			} else {
-				switch p.Method {
-				case proto.Publish:
-					err = c.handlePublish(p)
-				case proto.Bind:
-					err = c.handleBind(p)
-				case proto.Unbind:
-					err = c.handleUnbind(p)
-				case proto.Ack:
-					err = c.handleAck(p)
-				case proto.Heartbeat:
-					c.lastUpdate = time.Now().Unix()
-				default:
-					log.Info("invalid proto method %d", p.Method)
-					return
-				}
-			}
+		switch p.Method {
+		case proto.Publish:
+			err = c.handlePublish(p)
+		case proto.Bind:
+			err = c.handleBind(p)
+		case proto.Unbind:
+			err = c.handleUnbind(p)
+		case proto.Ack:
+			err = c.handleAck(p)
+		case proto.Heartbeat:
+			c.lastUpdate = time.Now().Unix()
+		default:
+			log.Info("invalid proto method %d", p.Method)
+			return
 		}
 
 		if err != nil {
 			c.writeError(err)
 		}
 	}
-}
-
-func (c *conn) handleAuth(p *proto.Proto) error {
-	if len(c.app.passMD5) > 0 {
-		if !bytes.Equal(p.Body, c.app.passMD5) {
-			return fmt.Errorf("invalid password")
-		}
-	}
-
-	c.authed = true
-
-	rp := proto.NewAuthOKProto()
-
-	c.writeProto(rp.P)
-
-	return nil
 }
 
 func (c *conn) writeError(err error) {

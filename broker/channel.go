@@ -1,23 +1,22 @@
 package broker
 
-import (
-	"github.com/siddontang/moonmq/proto"
-	"strconv"
-)
+type msgPusher interface {
+	Push(ch *channel, m *msg) error
+}
 
 //use channel represent conn bind a queue
 
 type channel struct {
-	c          *conn
+	p          msgPusher
 	q          *queue
 	routingKey string
 	noAck      bool
 }
 
-func newChannel(c *conn, q *queue, routingKey string, noAck bool) *channel {
+func newChannel(p msgPusher, q *queue, routingKey string, noAck bool) *channel {
 	ch := new(channel)
 
-	ch.c = c
+	ch.p = p
 	ch.q = q
 
 	ch.routingKey = routingKey
@@ -38,16 +37,7 @@ func (c *channel) Close() {
 }
 
 func (c *channel) Push(m *msg) error {
-	p := proto.NewPushProto(c.q.name,
-		strconv.FormatInt(m.id, 10), m.body)
-
-	err := c.c.writeProto(p.P)
-
-	if err == nil && c.noAck {
-		c.q.Ack(m.id)
-	}
-
-	return err
+	return c.p.Push(c, m)
 }
 
 func (c *channel) Ack(msgId int64) {

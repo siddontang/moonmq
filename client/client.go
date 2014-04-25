@@ -2,7 +2,6 @@ package client
 
 import (
 	"container/list"
-	"crypto/md5"
 	"encoding/json"
 	"github.com/siddontang/moonmq/proto"
 	"sync"
@@ -13,8 +12,6 @@ type Client struct {
 
 	cfg *Config
 
-	passMD5 []byte
-
 	conns *list.List
 
 	closed bool
@@ -23,11 +20,6 @@ type Client struct {
 func NewClientWithConfig(cfg *Config) (*Client, error) {
 	c := new(Client)
 	c.cfg = cfg
-
-	if len(cfg.Password) > 0 {
-		sum := md5.Sum([]byte(cfg.Password))
-		c.passMD5 = sum[0:16]
-	}
 
 	c.conns = list.New()
 	c.closed = false

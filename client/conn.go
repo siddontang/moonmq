@@ -140,7 +140,7 @@ func (c *Conn) request(p *proto.Proto, expectMethod uint32) (*proto.Proto, error
 	}
 
 	if rp.Method == proto.Error {
-		return nil, fmt.Errorf("error:%v, code:%d", rp.Body, rp.Fields[proto.CodeStr])
+		return nil, fmt.Errorf("error:%s, code:%s", rp.Body, rp.Fields[proto.CodeStr])
 	} else if rp.Method != expectMethod {
 		return nil, fmt.Errorf("invalid return method %d != %d", rp.Method, expectMethod)
 	}

@@ -60,7 +60,7 @@ func (p *Proto) RoutingKey() string {
 }
 
 func (p *Proto) PubType() string {
-	return p.Value(TypeStr)
+	return p.Value(PubTypeStr)
 }
 
 func (p *Proto) MsgId() string {

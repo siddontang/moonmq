@@ -6,7 +6,7 @@ import (
 
 // Method: Error
 // Fields:
-//     Code: xxx (http error code, int string)
+//     code: xxx (http error code, int string)
 // Body: message
 type ProtoError struct {
 	P *Proto

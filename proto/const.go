@@ -30,13 +30,13 @@ const (
 )
 
 const (
-	MsgIdStr      = "Msg-Id"
-	VersionStr    = "Version"
-	TypeStr       = "Type"
-	QueueStr      = "Queue"
-	RoutingKeyStr = "Routing-Key"
-	NoAckStr      = "No-Ack"
-	CodeStr       = "Code"
+	MsgIdStr      = "msg_id"
+	VersionStr    = "version"
+	PubTypeStr    = "pub_type"
+	QueueStr      = "queue"
+	RoutingKeyStr = "routing_key"
+	NoAckStr      = "no_ack"
+	CodeStr       = "code"
 )
 
 const (
@@ -45,13 +45,13 @@ const (
 )
 
 const (
-	DirectTypeStr = "direct"
-	FanoutTypeStr = "fanout"
+	DirectPubTypeStr = "direct"
+	FanoutPubTypeStr = "fanout"
 )
 
 var PublishTypeMap = map[string]uint8{
-	DirectTypeStr: DirectType,
-	FanoutTypeStr: FanoutType,
+	DirectPubTypeStr: DirectType,
+	FanoutPubTypeStr: FanoutType,
 }
 
 const (

@@ -2,12 +2,12 @@ package proto
 
 // Method: Publish
 // Fields:
-//     Queue: xxx
-//     Routing-Key: xxx
+//     queue: xxx
+//     routing_key: xxx
 //     //type: direct|fanout
 //     //direct select a consumer to push using round-robin
-//     //fanout broadcast to all consumers, ignore routing-key
-//     Type: xxx
+//     //fanout broadcast to all consumers, ignore routing key
+//     pub_type: xxx
 // Body:
 //     body
 type PublishProto struct {
@@ -20,7 +20,7 @@ func NewPublishProto(queue string, routingKey string, pubType string, body []byt
 	p.P = NewProto(Publish, map[string]string{
 		QueueStr:      queue,
 		RoutingKeyStr: routingKey,
-		TypeStr:       pubType,
+		PubTypeStr:    pubType,
 	}, body)
 
 	return &p
@@ -43,8 +43,8 @@ func NewPublishOKProto(msgId string) *PublishOKProto {
 
 // Method: Push
 // Fields:
-//     Queue: xxx
-//     Msg-Id: xxx
+//     queue: xxx
+//     msg_id: xxx
 // Body:
 //     body
 type PushProto struct {
@@ -64,8 +64,8 @@ func NewPushProto(queue string, msgId string, body []byte) *PushProto {
 
 // Method: Ack
 // Fields:
-//     Queue: xxx
-//     Msg-Id: xxx (int64 string)
+//     queue: xxx
+//     msg_id: xxx (int64 string)
 type AckProto struct {
 	P *Proto
 }

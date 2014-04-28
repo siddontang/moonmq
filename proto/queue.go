@@ -2,9 +2,9 @@ package proto
 
 // Method: Bind
 // Fields:
-//     Queue: xxx
-//     Routing-Key: xxx
-//     No-Ack: 1 or none
+//     queue: xxx
+//     routing_key: xxx
+//     no_ack: 1 or none
 // Body: nil
 type BindProto struct {
 	P *Proto
@@ -27,7 +27,7 @@ func NewBindProto(queue string, routingKey string, noAck bool) *BindProto {
 
 // Method: Bind_OK
 // Fields:
-//     Queue: xxx
+//     queue: xxx
 type BindOKProto struct {
 	P *Proto
 }
@@ -44,7 +44,7 @@ func NewBindOKProto(queue string) *BindOKProto {
 
 // Method: Unbind
 // Fields:
-//     Queue: xxx
+//     queue: xxx
 // Body: nil
 type UnbindProto struct {
 	P *Proto
@@ -63,7 +63,7 @@ func NewUnbindProto(queue string) *UnbindProto {
 // Method: Unbind_OK
 // Fields:
 //     //if queue is empty, we will unbind all queues
-//     Queue: xxx
+//     queue: xxx
 type UnbindOKProto struct {
 	P *Proto
 }

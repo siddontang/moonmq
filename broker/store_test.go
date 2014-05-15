@@ -110,26 +110,26 @@ func TestMemStore(t *testing.T) {
 	}
 }
 
-func TestLevelDBStore(t *testing.T) {
-	var config = []byte(`
-    {
-        "path" : "./testdb",
-        "compression":true,
-        "block_size" : 32,
-        "write_buffer_size" : 2,
-        "cache_size" : 20,
-        "key_prefix" : "test_moonmq"
-    }
-    `)
+// func TestLevelDBStore(t *testing.T) {
+// 	var config = []byte(`
+//     {
+//         "path" : "./testdb",
+//         "compression":true,
+//         "block_size" : 32,
+//         "write_buffer_size" : 2,
+//         "cache_size" : 20,
+//         "key_prefix" : "test_moonmq"
+//     }
+//     `)
 
-	s, err := newLevelDBStore(config)
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	s, err := newLevelDBStore(config)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	defer s.db.Destroy()
+// 	defer s.db.Destroy()
 
-	if err := testStore(s, false); err != nil {
-		t.Fatal(err)
-	}
-}
+// 	if err := testStore(s, false); err != nil {
+// 		t.Fatal(err)
+// 	}
+// }

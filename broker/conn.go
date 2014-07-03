@@ -2,7 +2,7 @@ package broker
 
 import (
 	"fmt"
-	"github.com/siddontang/golib/log"
+	"github.com/siddontang/go-log/log"
 	"github.com/siddontang/moonmq/proto"
 	"io"
 	"net"
